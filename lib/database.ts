@@ -151,6 +151,221 @@ class NeonDatabase {
     }
   }
 
+  // Campaign operations
+  async createCampaign(campaignData: CampaignInsert): Promise<Campaign> {
+    try {
+      const result = await this.sql`
+        INSERT INTO campaigns (client_id, name, type, platforms, hashtags, start_date, end_date, status)
+        VALUES (${campaignData.client_id}, ${campaignData.name}, ${campaignData.type}, 
+                ${campaignData.platforms}, ${campaignData.hashtags}, ${campaignData.start_date}, 
+                ${campaignData.end_date}, ${campaignData.status || "draft"})
+        RETURNING *
+      `
+      return result[0] as Campaign
+    } catch (error) {
+      console.error("Error creating campaign:", error)
+      throw new Error(`Failed to create campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async getCampaigns(): Promise<Campaign[]> {
+    try {
+      const result = await this.sql`
+        SELECT * FROM campaigns 
+        ORDER BY created_at DESC
+      `
+      return result as Campaign[]
+    } catch (error) {
+      console.error("Error fetching campaigns:", error)
+      throw new Error(`Failed to fetch campaigns: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async getCampaignById(id: string): Promise<Campaign | null> {
+    try {
+      const result = await this.sql`
+        SELECT * FROM campaigns 
+        WHERE id = ${id}
+      `
+      return result.length > 0 ? (result[0] as Campaign) : null
+    } catch (error) {
+      console.error("Error fetching campaign:", error)
+      throw new Error(`Failed to fetch campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async getCampaignsByClientId(clientId: string): Promise<Campaign[]> {
+    try {
+      const result = await this.sql`
+        SELECT * FROM campaigns 
+        WHERE client_id = ${clientId}
+        ORDER BY created_at DESC
+      `
+      return result as Campaign[]
+    } catch (error) {
+      console.error("Error fetching campaigns by client:", error)
+      throw new Error(`Failed to fetch campaigns: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | null> {
+    try {
+      const result = await this.sql`
+        UPDATE campaigns 
+        SET ${this.sql(updates)}, updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `
+      return result.length > 0 ? (result[0] as Campaign) : null
+    } catch (error) {
+      console.error("Error updating campaign:", error)
+      throw new Error(`Failed to update campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async deleteCampaign(id: string): Promise<boolean> {
+    try {
+      const result = await this.sql`
+        DELETE FROM campaigns 
+        WHERE id = ${id}
+      `
+      return result.count > 0
+    } catch (error) {
+      console.error("Error deleting campaign:", error)
+      throw new Error(`Failed to delete campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  // Content operations
+  async createContentItem(contentData: ContentItemInsert): Promise<ContentItem> {
+    try {
+      const result = await this.sql`
+        INSERT INTO content_items (client_id, campaign_id, name, type, file_path, file_size)
+        VALUES (${contentData.client_id}, ${contentData.campaign_id}, ${contentData.name}, 
+                ${contentData.type}, ${contentData.file_path}, ${contentData.file_size})
+        RETURNING *
+      `
+      return result[0] as ContentItem
+    } catch (error) {
+      console.error("Error creating content item:", error)
+      throw new Error(`Failed to create content item: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async getContentItems(): Promise<ContentItem[]> {
+    try {
+      const result = await this.sql`
+        SELECT * FROM content_items 
+        ORDER BY created_at DESC
+      `
+      return result as ContentItem[]
+    } catch (error) {
+      console.error("Error fetching content items:", error)
+      throw new Error(`Failed to fetch content items: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async getContentByClientId(clientId: string): Promise<ContentItem[]> {
+    try {
+      const result = await this.sql`
+        SELECT * FROM content_items 
+        WHERE client_id = ${clientId}
+        ORDER BY created_at DESC
+      `
+      return result as ContentItem[]
+    } catch (error) {
+      console.error("Error fetching content by client:", error)
+      throw new Error(`Failed to fetch content: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  // Scheduled posts operations
+  async createScheduledPost(postData: ScheduledPostInsert): Promise<ScheduledPost> {
+    try {
+      const result = await this.sql`
+        INSERT INTO scheduled_posts (campaign_id, client_id, platform, content, media_urls, hashtags, scheduled_time, status)
+        VALUES (${postData.campaign_id}, ${postData.client_id}, ${postData.platform}, 
+                ${postData.content}, ${postData.media_urls}, ${postData.hashtags}, 
+                ${postData.scheduled_time}, ${postData.status || "draft"})
+        RETURNING *
+      `
+      return result[0] as ScheduledPost
+    } catch (error) {
+      console.error("Error creating scheduled post:", error)
+      throw new Error(`Failed to create scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async getScheduledPosts(): Promise<ScheduledPost[]> {
+    try {
+      const result = await this.sql`
+        SELECT * FROM scheduled_posts 
+        ORDER BY scheduled_time ASC
+      `
+      return result as ScheduledPost[]
+    } catch (error) {
+      console.error("Error fetching scheduled posts:", error)
+      throw new Error(`Failed to fetch scheduled posts: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async getScheduledPostsByClientId(clientId: string): Promise<ScheduledPost[]> {
+    try {
+      const result = await this.sql`
+        SELECT * FROM scheduled_posts 
+        WHERE client_id = ${clientId}
+        ORDER BY scheduled_time ASC
+      `
+      return result as ScheduledPost[]
+    } catch (error) {
+      console.error("Error fetching scheduled posts by client:", error)
+      throw new Error(`Failed to fetch scheduled posts: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  async updateScheduledPost(id: string, updates: Partial<ScheduledPost>): Promise<ScheduledPost | null> {
+    try {
+      const result = await this.sql`
+        UPDATE scheduled_posts 
+        SET ${this.sql(updates)}, updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `
+      return result.length > 0 ? (result[0] as ScheduledPost) : null
+    } catch (error) {
+      console.error("Error updating scheduled post:", error)
+      throw new Error(`Failed to update scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  // Analytics and dashboard queries
+  async getDashboardStats(clientId?: string) {
+    try {
+      const [clients, campaigns, scheduledPosts] = await Promise.all([
+        clientId ? [await this.getClientById(clientId)] : this.getClients(),
+        clientId ? this.getCampaignsByClientId(clientId) : this.getCampaigns(),
+        clientId ? this.getScheduledPostsByClientId(clientId) : this.getScheduledPosts(),
+      ])
+
+      const activeCampaigns = campaigns.filter((c) => c.status === "active")
+      const upcomingPosts = scheduledPosts.filter(
+        (p) => p.status === "scheduled" && new Date(p.scheduled_time) > new Date(),
+      )
+
+      return {
+        totalClients: clients.length,
+        totalCampaigns: campaigns.length,
+        activeCampaigns: activeCampaigns.length,
+        scheduledPosts: upcomingPosts.length,
+        campaigns,
+        upcomingPosts: upcomingPosts.slice(0, 5),
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error)
+      throw error
+    }
+  }
+
   // Test database connection
   async testConnection(): Promise<boolean> {
     try {
@@ -184,6 +399,58 @@ class MockDatabase {
 
   async deleteClient(id: string): Promise<boolean> {
     return false
+  }
+
+  async createCampaign(campaignData: CampaignInsert): Promise<Campaign> {
+    throw new Error("Database not configured. Please add DATABASE_URL environment variable.")
+  }
+
+  async getCampaigns(): Promise<Campaign[]> {
+    return []
+  }
+
+  async getCampaignById(id: string): Promise<Campaign | null> {
+    return null
+  }
+
+  async getCampaignsByClientId(clientId: string): Promise<Campaign[]> {
+    return []
+  }
+
+  async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | null> {
+    return null
+  }
+
+  async deleteCampaign(id: string): Promise<boolean> {
+    return false
+  }
+
+  async createContentItem(contentData: ContentItemInsert): Promise<ContentItem> {
+    throw new Error("Database not configured. Please add DATABASE_URL environment variable.")
+  }
+
+  async getContentItems(): Promise<ContentItem[]> {
+    return []
+  }
+
+  async getContentByClientId(clientId: string): Promise<ContentItem[]> {
+    return []
+  }
+
+  async createScheduledPost(postData: ScheduledPostInsert): Promise<ScheduledPost> {
+    throw new Error("Database not configured. Please add DATABASE_URL environment variable.")
+  }
+
+  async getScheduledPosts(): Promise<ScheduledPost[]> {
+    return []
+  }
+
+  async getScheduledPostsByClientId(clientId: string): Promise<ScheduledPost[]> {
+    return []
+  }
+
+  async updateScheduledPost(id: string, updates: Partial<ScheduledPost>): Promise<ScheduledPost | null> {
+    return null
   }
 
   async testConnection(): Promise<boolean> {
