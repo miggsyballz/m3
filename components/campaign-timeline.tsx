@@ -4,16 +4,20 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, Clock, Eye } from "lucide-react"
+import { Calendar, Clock, Eye, RefreshCw } from "lucide-react"
 
 interface Campaign {
   id: string
-  campaign_name: string
+  client_id: string
+  name: string
+  type: string
+  platforms: string[]
+  hashtags: string[]
   start_date: string | null
   end_date: string | null
-  platform: string[]
   status: "draft" | "active" | "scheduled" | "completed"
-  type: string
+  created_at: string
+  updated_at: string
 }
 
 interface CampaignTimelineProps {
@@ -24,6 +28,7 @@ interface CampaignTimelineProps {
 export function CampaignTimeline({ selectedClient, onClickItem }: CampaignTimelineProps) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadCampaigns()
@@ -31,40 +36,36 @@ export function CampaignTimeline({ selectedClient, onClickItem }: CampaignTimeli
 
   const loadCampaigns = async () => {
     setLoading(true)
+    setError(null)
+
     try {
-      // Mock data for now - replace with actual API call
-      const mockCampaigns: Campaign[] = [
-        {
-          id: "1",
-          campaign_name: "Q1 Brand Awareness",
-          start_date: "2024-01-15",
-          end_date: "2024-03-15",
-          platform: ["Instagram", "Facebook"],
-          status: "active",
-          type: "Brand Awareness",
-        },
-        {
-          id: "2",
-          campaign_name: "Product Launch",
-          start_date: "2024-02-01",
-          end_date: "2024-02-28",
-          platform: ["Instagram", "TikTok", "LinkedIn"],
-          status: "scheduled",
-          type: "Product Launch",
-        },
-        {
-          id: "3",
-          campaign_name: "Holiday Promotion",
-          start_date: "2023-12-01",
-          end_date: "2023-12-31",
-          platform: ["Instagram", "Facebook"],
-          status: "completed",
-          type: "Promotional",
-        },
-      ]
-      setCampaigns(mockCampaigns)
+      // Get the selected client's ID from the client name
+      let clientId = null
+      if (selectedClient) {
+        const clientsResponse = await fetch("/api/clients")
+        const clientsData = await clientsResponse.json()
+        const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || []
+        const client = clients.find((c: any) => c.client_name === selectedClient)
+        clientId = client?.id
+      }
+
+      // Fetch campaigns
+      const url = clientId ? `/api/campaigns?clientId=${clientId}` : "/api/campaigns"
+      const response = await fetch(url)
+      const data = await response.json()
+
+      if (Array.isArray(data)) {
+        setCampaigns(data)
+      } else if (data.campaigns && Array.isArray(data.campaigns)) {
+        setCampaigns(data.campaigns)
+        if (data.error) setError(data.error)
+      } else {
+        setCampaigns([])
+        if (data.error) setError(data.error)
+      }
     } catch (error) {
       console.error("Error loading campaigns:", error)
+      setError("Failed to load campaigns")
       setCampaigns([])
     } finally {
       setLoading(false)
@@ -119,13 +120,30 @@ export function CampaignTimeline({ selectedClient, onClickItem }: CampaignTimeli
         <CardDescription>
           {selectedClient ? `Campaigns for ${selectedClient}` : "All campaigns across clients"}
         </CardDescription>
+        <Button variant="outline" size="sm" onClick={loadCampaigns} className="w-fit bg-transparent">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
       </CardHeader>
       <CardContent>
-        {campaigns.length === 0 ? (
+        {error && (
+          <div className="text-center py-4 text-red-600 text-sm">
+            <p>Error: {error}</p>
+            <Button variant="outline" size="sm" onClick={loadCampaigns} className="mt-2 bg-transparent">
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {campaigns.length === 0 && !error ? (
           <div className="text-center py-8">
             <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Campaigns Found</h3>
-            <p className="text-muted-foreground">Create your first campaign to see it here.</p>
+            <p className="text-muted-foreground">
+              {selectedClient
+                ? `No campaigns found for ${selectedClient}. Create your first campaign to see it here.`
+                : "Create your first campaign to see it here."}
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -156,7 +174,7 @@ export function CampaignTimeline({ selectedClient, onClickItem }: CampaignTimeli
                     onClick={() => onClickItem?.(campaign)}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium">{campaign.campaign_name}</h3>
+                      <h3 className="font-medium">{campaign.name}</h3>
                       <Badge className={getStatusColor(campaign.status)}>{campaign.status}</Badge>
                     </div>
 
@@ -173,16 +191,26 @@ export function CampaignTimeline({ selectedClient, onClickItem }: CampaignTimeli
 
                     <div className="flex items-center justify-between">
                       <div className="flex gap-1">
-                        {campaign.platform.map((platform) => (
+                        {campaign.platforms.map((platform) => (
                           <Badge key={platform} variant="outline" className="text-xs">
                             {platform}
                           </Badge>
                         ))}
+                        {campaign.platforms.length === 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            No platforms
+                          </Badge>
+                        )}
                       </div>
                       <Button variant="outline" size="sm">
                         <Eye className="mr-2 h-4 w-4" />
                         View Details
                       </Button>
+                    </div>
+
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      <p>Type: {campaign.type}</p>
+                      <p>Created: {new Date(campaign.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
                 </div>

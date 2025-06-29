@@ -21,6 +21,15 @@ interface Client {
   updated_at: string
 }
 
+interface ClientStats {
+  totalCampaigns: number
+  activeCampaigns: number
+  scheduledPosts: number
+  totalPosts: number
+  campaigns?: any[]
+  upcomingPosts?: any[]
+}
+
 interface ClientDashboardProps {
   selectedClient: string | null
 }
@@ -31,10 +40,69 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
   const [error, setError] = useState<string | null>(null)
   const [initializing, setInitializing] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const [clientStats, setClientStats] = useState<ClientStats>({
+    totalCampaigns: 0,
+    activeCampaigns: 0,
+    scheduledPosts: 0,
+    totalPosts: 0,
+  })
+  const [statsLoading, setStatsLoading] = useState(false)
 
   useEffect(() => {
     loadClients()
-  }, [selectedClient])
+  }, [])
+
+  useEffect(() => {
+    // Load real stats when selected client changes
+    loadClientStats()
+  }, [selectedClient, clients])
+
+  const loadClientStats = async () => {
+    setStatsLoading(true)
+    try {
+      if (!selectedClient) {
+        // Load aggregate stats for all clients
+        const response = await fetch("/api/campaigns")
+        const campaignsData = await response.json()
+        const campaigns = Array.isArray(campaignsData) ? campaignsData : campaignsData.campaigns || []
+
+        setClientStats({
+          totalCampaigns: campaigns.length,
+          activeCampaigns: campaigns.filter((c: any) => c.status === "active").length,
+          scheduledPosts: 0, // TODO: Implement scheduled posts API
+          totalPosts: 0, // TODO: Implement content API
+        })
+      } else {
+        // Load stats for specific client
+        const client = clients.find((c) => c.client_name === selectedClient)
+        if (client) {
+          const response = await fetch(`/api/clients/${client.id}/stats`)
+          if (response.ok) {
+            const stats = await response.json()
+            setClientStats(stats)
+          } else {
+            // Fallback to zero stats if API fails
+            setClientStats({
+              totalCampaigns: 0,
+              activeCampaigns: 0,
+              scheduledPosts: 0,
+              totalPosts: 0,
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error loading client stats:", error)
+      setClientStats({
+        totalCampaigns: 0,
+        activeCampaigns: 0,
+        scheduledPosts: 0,
+        totalPosts: 0,
+      })
+    } finally {
+      setStatsLoading(false)
+    }
+  }
 
   const loadClients = async () => {
     setLoading(true)
@@ -44,7 +112,6 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
       const response = await fetch("/api/clients")
       let data: any = null
 
-      // Always attempt to read the JSON body (even on 4xx/5xx)
       try {
         data = await response.json()
       } catch {
@@ -52,17 +119,14 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
       }
 
       if (!response.ok) {
-        // Prefer any server-supplied error, else build a generic one
         const errMsg = data?.error || data?.message || `Server error (${response.status} ${response.statusText})`
         setError(errMsg)
         setClients(Array.isArray(data?.clients) ? data.clients : [])
         return
       }
 
-      // ----- success path -----
       if (Array.isArray(data)) {
         setClients(data)
-        // Auto-initialize if no clients exist
         if (data.length === 0) {
           await initializeDatabase()
           return
@@ -70,7 +134,6 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
       } else if (data?.clients && Array.isArray(data.clients)) {
         setClients(data.clients)
         if (data.error) setError(data.message || data.error)
-        // Auto-initialize if no clients exist
         if (data.clients.length === 0) {
           await initializeDatabase()
           return
@@ -108,8 +171,6 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
       }
 
       console.log("Database initialized:", result)
-
-      // Reload clients after initialization
       await loadClients()
     } catch (error) {
       console.error("Error initializing database:", error)
@@ -117,6 +178,11 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
     } finally {
       setInitializing(false)
     }
+  }
+
+  const getSelectedClientData = () => {
+    if (!selectedClient) return null
+    return clients.find((client) => client.client_name === selectedClient)
   }
 
   if (loading || initializing) {
@@ -134,13 +200,17 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
     )
   }
 
+  const selectedClientData = getSelectedClientData()
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Client Dashboard</h1>
+          <h1 className="text-3xl font-bold">{selectedClient ? `${selectedClient} Dashboard` : "Client Dashboard"}</h1>
           <p className="text-muted-foreground">
-            {selectedClient ? `Managing campaigns for ${selectedClient}` : "Overview of all client activities"}
+            {selectedClient
+              ? `Real-time data for ${selectedClient} from Neon database`
+              : "Overview of all client activities from Neon database"}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             Last updated: {lastRefresh.toLocaleTimeString()} • Powered by Neon
@@ -195,15 +265,26 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
         </Card>
       ) : (
         <>
+          {/* Real client-specific stats from database */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  {selectedClient ? "Client Campaigns" : "Total Clients"}
+                </CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{clients.length}</div>
-                <p className="text-xs text-muted-foreground">Active clients</p>
+                <div className="text-2xl font-bold">
+                  {statsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  ) : selectedClient ? (
+                    clientStats.totalCampaigns
+                  ) : (
+                    clients.length
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{selectedClient ? "Total campaigns" : "Active clients"}</p>
               </CardContent>
             </Card>
 
@@ -213,7 +294,13 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">2</div>
+                <div className="text-2xl font-bold">
+                  {statsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  ) : (
+                    clientStats.activeCampaigns
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">Currently running</p>
               </CardContent>
             </Card>
@@ -224,7 +311,13 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">5</div>
+                <div className="text-2xl font-bold">
+                  {statsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  ) : (
+                    clientStats.scheduledPosts
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">Next 7 days</p>
               </CardContent>
             </Card>
@@ -235,13 +328,83 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">23</div>
+                <div className="text-2xl font-bold">
+                  {statsLoading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  ) : (
+                    clientStats.totalPosts
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">All time</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Dynamic Components based on your specifications */}
+          {/* Show client details if one is selected */}
+          {selectedClient && selectedClientData && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  {selectedClient} Details
+                </CardTitle>
+                <CardDescription>Real client information from Neon database</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <h4 className="font-medium mb-2">Contact Information</h4>
+                    <div className="space-y-1 text-sm">
+                      <p>
+                        <strong>Email:</strong> {selectedClientData.contact_email}
+                      </p>
+                      <p>
+                        <strong>Created:</strong> {new Date(selectedClientData.created_at).toLocaleDateString()}
+                      </p>
+                      <p>
+                        <strong>Database ID:</strong> {selectedClientData.id}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Social Media Accounts</h4>
+                    <div className="flex gap-2">
+                      {selectedClientData.ig_handle && (
+                        <Badge variant="outline" className="text-xs">
+                          IG: {selectedClientData.ig_handle}
+                        </Badge>
+                      )}
+                      {selectedClientData.fb_page && (
+                        <Badge variant="outline" className="text-xs">
+                          FB
+                        </Badge>
+                      )}
+                      {selectedClientData.linkedin_url && (
+                        <Badge variant="outline" className="text-xs">
+                          LI
+                        </Badge>
+                      )}
+                      {!selectedClientData.ig_handle &&
+                        !selectedClientData.fb_page &&
+                        !selectedClientData.linkedin_url && (
+                          <Badge variant="outline" className="text-xs text-muted-foreground">
+                            No social accounts
+                          </Badge>
+                        )}
+                    </div>
+                  </div>
+                </div>
+                {selectedClientData.notes && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Notes</h4>
+                    <p className="text-sm text-muted-foreground">{selectedClientData.notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Real Dynamic Components - now with actual database queries */}
           <div className="grid gap-6 lg:grid-cols-2">
             <CampaignTimeline
               selectedClient={selectedClient}
@@ -252,11 +415,12 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
 
           <ContentLibraryTable selectedClient={selectedClient} />
 
-          {clients.length > 0 && (
+          {/* Show all clients only when no specific client is selected */}
+          {!selectedClient && clients.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Client List</CardTitle>
-                <CardDescription>All your clients from Neon database</CardDescription>
+                <CardTitle>All Clients</CardTitle>
+                <CardDescription>Real client data from Neon database</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -265,6 +429,7 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
                       <div>
                         <p className="font-medium">{client.client_name}</p>
                         <p className="text-sm text-muted-foreground">{client.contact_email}</p>
+                        <p className="text-xs text-muted-foreground">ID: {client.id}</p>
                         <div className="flex gap-2 mt-1">
                           {client.ig_handle && (
                             <Badge variant="outline" className="text-xs">
@@ -284,7 +449,7 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-muted-foreground">2 campaigns</p>
+                        <p className="text-sm text-muted-foreground">Loading campaigns...</p>
                         <Button variant="outline" size="sm" className="mt-1 bg-transparent">
                           <Eye className="mr-2 h-4 w-4" />
                           View

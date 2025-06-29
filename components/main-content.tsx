@@ -8,6 +8,7 @@ import { ClientDashboard } from "@/components/client-dashboard"
 import { CampaignBuilder } from "@/components/campaign-builder"
 import { CalendarView } from "@/components/calendar-view"
 import { ContentLibrary } from "@/components/content-library"
+import { ContentManagement } from "@/components/content-management"
 import { AIRewriter } from "@/components/ai-rewriter"
 import { HashtagTools } from "@/components/hashtag-tools"
 import { SettingsView } from "@/components/settings-view"
@@ -25,6 +26,7 @@ export function MainContent({ activeTab, setActiveTab, selectedClient }: MainCon
     "Campaign Builder",
     "Calendar",
     "Content Library",
+    "M3 Content System",
     "AI Rewriter",
     "Hashtag Tools",
     "Settings",
@@ -54,10 +56,10 @@ export function MainContent({ activeTab, setActiveTab, selectedClient }: MainCon
 
       <div className="flex flex-1 flex-col gap-4 p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             {tabs.map((tab) => (
               <TabsTrigger key={tab} value={tab} className="text-xs">
-                {tab}
+                {tab === "M3 Content System" ? "M3 System" : tab}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -76,6 +78,10 @@ export function MainContent({ activeTab, setActiveTab, selectedClient }: MainCon
 
           <TabsContent value="Content Library" className="mt-4">
             <ContentLibrary selectedClient={selectedClient} />
+          </TabsContent>
+
+          <TabsContent value="M3 Content System" className="mt-4">
+            <ContentManagement selectedClient={selectedClient} />
           </TabsContent>
 
           <TabsContent value="AI Rewriter" className="mt-4">

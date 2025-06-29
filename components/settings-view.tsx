@@ -8,9 +8,15 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Key, Folder, Database, Save, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react"
+import { SocialAuth } from "@/components/social-auth"
 
-export function SettingsView() {
+interface SettingsViewProps {
+  selectedClient?: string | null
+}
+
+export function SettingsView({ selectedClient }: SettingsViewProps) {
   const [showApiKeys, setShowApiKeys] = useState(false)
   const [apiKeys, setApiKeys] = useState({
     openai: "",
@@ -56,7 +62,10 @@ export function SettingsView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Configure your M3 application settings and integrations</p>
+          <p className="text-muted-foreground">
+            Configure your M3 application settings and integrations
+            {selectedClient && ` for ${selectedClient}`}
+          </p>
         </div>
         <Button>
           <Save className="mr-2 h-4 w-4" />
@@ -64,8 +73,19 @@ export function SettingsView() {
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-6">
+      <Tabs defaultValue="social-auth" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="social-auth">Social Media</TabsTrigger>
+          <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+          <TabsTrigger value="folders">Folders</TabsTrigger>
+          <TabsTrigger value="backup">Backup</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="social-auth" className="mt-6">
+          <SocialAuth selectedClient={selectedClient} />
+        </TabsContent>
+
+        <TabsContent value="api-keys" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -116,7 +136,9 @@ export function SettingsView() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
+        <TabsContent value="folders" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -154,50 +176,55 @@ export function SettingsView() {
               </Button>
             </CardContent>
           </Card>
-        </div>
+        </TabsContent>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Backup & Data
-              </CardTitle>
-              <CardDescription>Manage your data backup and storage settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="auto-backup">Automatic Backup</Label>
-                  <p className="text-sm text-muted-foreground">Automatically backup your data daily</p>
+        <TabsContent value="backup" className="mt-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Backup & Data
+                </CardTitle>
+                <CardDescription>Manage your data backup and storage settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="auto-backup">Automatic Backup</Label>
+                    <p className="text-sm text-muted-foreground">Automatically backup your data daily</p>
+                  </div>
+                  <Switch id="auto-backup" checked={autoBackup} onCheckedChange={setAutoBackup} />
                 </div>
-                <Switch id="auto-backup" checked={autoBackup} onCheckedChange={setAutoBackup} />
-              </div>
 
-              <Separator />
+                <Separator />
 
-              <div className="space-y-3">
-                <h4 className="font-medium">Backup Actions</h4>
-                <div className="space-y-2">
-                  <Button variant="outline" className="w-full justify-start bg-transparent">
-                    <Database className="mr-2 h-4 w-4" />
-                    Create Manual Backup
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start bg-transparent">
-                    <Database className="mr-2 h-4 w-4" />
-                    Restore from Backup
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start bg-transparent">
-                    <Database className="mr-2 h-4 w-4" />
-                    Export Data
-                  </Button>
+                <div className="space-y-3">
+                  <h4 className="font-medium">Backup Actions</h4>
+                  <div className="space-y-2">
+                    <Button variant="outline" className="w-full justify-start bg-transparent">
+                      <Database className="mr-2 h-4 w-4" />
+                      Create Manual Backup
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start bg-transparent">
+                      <Database className="mr-2 h-4 w-4" />
+                      Restore from Backup
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start bg-transparent">
+                      <Database className="mr-2 h-4 w-4" />
+                      Export Data
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              <Separator />
-
-              <div className="space-y-2">
-                <h4 className="font-medium">Storage Usage</h4>
+            <Card>
+              <CardHeader>
+                <CardTitle>Storage Usage</CardTitle>
+                <CardDescription>Current storage usage breakdown</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Media Files</span>
@@ -217,36 +244,11 @@ export function SettingsView() {
                     <span>3.5 GB</span>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Application Info</CardTitle>
-              <CardDescription>Information about your M3 installation</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Version</span>
-                <span>1.0.0</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Last Updated</span>
-                <span>January 15, 2024</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">License</span>
-                <span>MaxxBeats Pro</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Support</span>
-                <span>support@maxxbeats.com</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
