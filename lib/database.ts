@@ -1,462 +1,288 @@
 import { neon } from "@neondatabase/serverless"
 
-// 1. Block DB code on the client
-if (typeof window !== "undefined") {
-  throw new Error("Database operations cannot run on the client side")
-}
+const sql = neon(process.env.DATABASE_URL!)
 
-// 2. Figure out the connection string (server-side only)
-const connectionString =
-  process.env.DATABASE_URL ||
-  process.env.POSTGRES_URL ||
-  process.env.POSTGRES_PRISMA_URL ||
-  process.env.NEON_DATABASE_URL ||
-  ""
-
-// Database types
 export interface Client {
-  id: string
-  client_name: string
-  ig_handle: string | null
-  fb_page: string | null
-  linkedin_url: string | null
-  contact_email: string
-  notes: string | null
+  id: number
+  name: string
+  email: string
+  phone?: string
+  company?: string
+  industry?: string
+  website?: string
+  notes?: string
+  status: "active" | "inactive" | "pending"
   created_at: string
   updated_at: string
 }
 
 export interface Campaign {
-  id: string
-  client_id: string
+  id: number
+  client_id: number
   name: string
-  type: string
-  platforms: string[]
-  hashtags: string[]
-  start_date: string | null
-  end_date: string | null
-  status: "draft" | "active" | "scheduled" | "completed"
+  description?: string
+  status: "draft" | "active" | "paused" | "completed"
+  start_date?: string
+  end_date?: string
+  budget?: number
+  goals?: string[]
+  target_audience?: string
   created_at: string
   updated_at: string
 }
 
-export interface ContentItem {
-  id: string
-  client_id: string
-  campaign_id: string | null
-  name: string
-  type: "image" | "video" | "audio" | "document"
-  file_path: string
-  file_size: number
-  created_at: string
-  updated_at: string
-}
-
-export interface ScheduledPost {
-  id: string
-  campaign_id: string
-  client_id: string
-  platform: string
+export interface Content {
+  id: number
+  client_id: number
+  campaign_id?: number
+  title: string
   content: string
-  media_urls: string[]
-  hashtags: string[]
-  scheduled_time: string
+  media_urls?: string[]
+  hashtags?: string[]
+  platforms?: string[]
   status: "draft" | "scheduled" | "published" | "failed"
+  scheduled_for?: string
+  published_at?: string
   created_at: string
   updated_at: string
 }
 
-export type ClientInsert = Omit<Client, "id" | "created_at" | "updated_at">
-export type CampaignInsert = Omit<Campaign, "id" | "created_at" | "updated_at">
-export type ContentItemInsert = Omit<ContentItem, "id" | "created_at" | "updated_at">
-export type ScheduledPostInsert = Omit<ScheduledPost, "id" | "created_at" | "updated_at">
+export interface SocialToken {
+  id: number
+  client_id: number
+  platform: string
+  access_token: string
+  refresh_token?: string
+  expires_at?: string
+  permissions: string[]
+  platform_user_id?: string
+  platform_username?: string
+  last_synced?: string
+  created_at: string
+  updated_at: string
+}
 
-class NeonDatabase {
-  private sql: any
-
-  constructor() {
-    if (!connectionString) {
-      throw new Error("DATABASE_URL is required but not provided")
-    }
-    this.sql = neon(connectionString)
-  }
-
+export const db = {
   // Client operations
-  async createClient(clientData: ClientInsert): Promise<Client> {
-    try {
-      const result = await this.sql`
-        INSERT INTO clients (client_name, ig_handle, fb_page, linkedin_url, contact_email, notes)
-        VALUES (${clientData.client_name}, ${clientData.ig_handle}, ${clientData.fb_page}, 
-                ${clientData.linkedin_url}, ${clientData.contact_email}, ${clientData.notes})
-        RETURNING *
-      `
-      return result[0] as Client
-    } catch (error) {
-      console.error("Error creating client:", error)
-      throw new Error(`Failed to create client: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
   async getClients(): Promise<Client[]> {
-    try {
-      const result = await this.sql`
-        SELECT * FROM clients 
-        ORDER BY created_at DESC
-      `
-      return result as Client[]
-    } catch (error) {
-      console.error("Error fetching clients:", error)
-      throw new Error(`Failed to fetch clients: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+    const result = await sql`SELECT * FROM clients ORDER BY created_at DESC`
+    return result as Client[]
+  },
 
-  async getClientById(id: string): Promise<Client | null> {
-    try {
-      const result = await this.sql`
-        SELECT * FROM clients 
-        WHERE id = ${id}
-      `
-      return result.length > 0 ? (result[0] as Client) : null
-    } catch (error) {
-      console.error("Error fetching client:", error)
-      throw new Error(`Failed to fetch client: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+  async getClient(id: number): Promise<Client | null> {
+    const result = await sql`SELECT * FROM clients WHERE id = ${id}`
+    return (result[0] as Client) || null
+  },
 
-  async updateClient(id: string, updates: Partial<Client>): Promise<Client | null> {
-    try {
-      const result = await this.sql`
-        UPDATE clients 
-        SET ${this.sql(updates)}, updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *
-      `
-      return result.length > 0 ? (result[0] as Client) : null
-    } catch (error) {
-      console.error("Error updating client:", error)
-      throw new Error(`Failed to update client: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+  async createClient(client: Omit<Client, "id" | "created_at" | "updated_at">): Promise<Client> {
+    const result = await sql`
+      INSERT INTO clients (name, email, phone, company, industry, website, notes, status)
+      VALUES (${client.name}, ${client.email}, ${client.phone}, ${client.company}, 
+              ${client.industry}, ${client.website}, ${client.notes}, ${client.status})
+      RETURNING *
+    `
+    return result[0] as Client
+  },
 
-  async deleteClient(id: string): Promise<boolean> {
-    try {
-      const result = await this.sql`
-        DELETE FROM clients 
-        WHERE id = ${id}
-      `
-      return result.count > 0
-    } catch (error) {
-      console.error("Error deleting client:", error)
-      throw new Error(`Failed to delete client: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+  async updateClient(id: number, updates: Partial<Client>): Promise<Client> {
+    const setClause = Object.keys(updates)
+      .filter((key) => key !== "id" && key !== "created_at" && key !== "updated_at")
+      .map((key) => `${key} = $${key}`)
+      .join(", ")
+
+    const result = await sql`
+      UPDATE clients 
+      SET ${sql.unsafe(setClause)}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+      RETURNING *
+    `
+    return result[0] as Client
+  },
+
+  async deleteClient(id: number): Promise<void> {
+    await sql`DELETE FROM clients WHERE id = ${id}`
+  },
 
   // Campaign operations
-  async createCampaign(campaignData: CampaignInsert): Promise<Campaign> {
-    try {
-      const result = await this.sql`
-        INSERT INTO campaigns (client_id, name, type, platforms, hashtags, start_date, end_date, status)
-        VALUES (${campaignData.client_id}, ${campaignData.name}, ${campaignData.type}, 
-                ${campaignData.platforms}, ${campaignData.hashtags}, ${campaignData.start_date}, 
-                ${campaignData.end_date}, ${campaignData.status || "draft"})
-        RETURNING *
-      `
-      return result[0] as Campaign
-    } catch (error) {
-      console.error("Error creating campaign:", error)
-      throw new Error(`Failed to create campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  async getCampaigns(): Promise<Campaign[]> {
-    try {
-      const result = await this.sql`
-        SELECT * FROM campaigns 
-        ORDER BY created_at DESC
-      `
+  async getCampaigns(clientId?: number): Promise<Campaign[]> {
+    if (clientId) {
+      const result = await sql`SELECT * FROM campaigns WHERE client_id = ${clientId} ORDER BY created_at DESC`
       return result as Campaign[]
-    } catch (error) {
-      console.error("Error fetching campaigns:", error)
-      throw new Error(`Failed to fetch campaigns: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
-  }
+    const result = await sql`SELECT * FROM campaigns ORDER BY created_at DESC`
+    return result as Campaign[]
+  },
 
-  async getCampaignById(id: string): Promise<Campaign | null> {
-    try {
-      const result = await this.sql`
-        SELECT * FROM campaigns 
-        WHERE id = ${id}
-      `
-      return result.length > 0 ? (result[0] as Campaign) : null
-    } catch (error) {
-      console.error("Error fetching campaign:", error)
-      throw new Error(`Failed to fetch campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+  async getCampaign(id: number): Promise<Campaign | null> {
+    const result = await sql`SELECT * FROM campaigns WHERE id = ${id}`
+    return (result[0] as Campaign) || null
+  },
 
-  async getCampaignsByClientId(clientId: string): Promise<Campaign[]> {
-    try {
-      const result = await this.sql`
-        SELECT * FROM campaigns 
-        WHERE client_id = ${clientId}
-        ORDER BY created_at DESC
-      `
-      return result as Campaign[]
-    } catch (error) {
-      console.error("Error fetching campaigns by client:", error)
-      throw new Error(`Failed to fetch campaigns: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+  async createCampaign(campaign: Omit<Campaign, "id" | "created_at" | "updated_at">): Promise<Campaign> {
+    const result = await sql`
+      INSERT INTO campaigns (client_id, name, description, status, start_date, end_date, budget, goals, target_audience)
+      VALUES (${campaign.client_id}, ${campaign.name}, ${campaign.description}, ${campaign.status},
+              ${campaign.start_date}, ${campaign.end_date}, ${campaign.budget}, 
+              ${JSON.stringify(campaign.goals)}, ${campaign.target_audience})
+      RETURNING *
+    `
+    return result[0] as Campaign
+  },
 
-  async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | null> {
-    try {
-      const result = await this.sql`
-        UPDATE campaigns 
-        SET ${this.sql(updates)}, updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *
-      `
-      return result.length > 0 ? (result[0] as Campaign) : null
-    } catch (error) {
-      console.error("Error updating campaign:", error)
-      throw new Error(`Failed to update campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+  async updateCampaign(id: number, updates: Partial<Campaign>): Promise<Campaign> {
+    const result = await sql`
+      UPDATE campaigns 
+      SET name = COALESCE(${updates.name}, name),
+          description = COALESCE(${updates.description}, description),
+          status = COALESCE(${updates.status}, status),
+          start_date = COALESCE(${updates.start_date}, start_date),
+          end_date = COALESCE(${updates.end_date}, end_date),
+          budget = COALESCE(${updates.budget}, budget),
+          goals = COALESCE(${JSON.stringify(updates.goals)}, goals),
+          target_audience = COALESCE(${updates.target_audience}, target_audience),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+      RETURNING *
+    `
+    return result[0] as Campaign
+  },
 
-  async deleteCampaign(id: string): Promise<boolean> {
-    try {
-      const result = await this.sql`
-        DELETE FROM campaigns 
-        WHERE id = ${id}
-      `
-      return result.count > 0
-    } catch (error) {
-      console.error("Error deleting campaign:", error)
-      throw new Error(`Failed to delete campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+  async deleteCampaign(id: number): Promise<void> {
+    await sql`DELETE FROM campaigns WHERE id = ${id}`
+  },
 
   // Content operations
-  async createContentItem(contentData: ContentItemInsert): Promise<ContentItem> {
-    try {
-      const result = await this.sql`
-        INSERT INTO content_items (client_id, campaign_id, name, type, file_path, file_size)
-        VALUES (${contentData.client_id}, ${contentData.campaign_id}, ${contentData.name}, 
-                ${contentData.type}, ${contentData.file_path}, ${contentData.file_size})
-        RETURNING *
-      `
-      return result[0] as ContentItem
-    } catch (error) {
-      console.error("Error creating content item:", error)
-      throw new Error(`Failed to create content item: ${error instanceof Error ? error.message : "Unknown error"}`)
+  async getContent(clientId?: number, campaignId?: number): Promise<Content[]> {
+    let query = `SELECT * FROM content WHERE 1=1`
+    const params: any[] = []
+
+    if (clientId) {
+      query += ` AND client_id = $${params.length + 1}`
+      params.push(clientId)
     }
-  }
 
-  async getContentItems(): Promise<ContentItem[]> {
-    try {
-      const result = await this.sql`
-        SELECT * FROM content_items 
-        ORDER BY created_at DESC
-      `
-      return result as ContentItem[]
-    } catch (error) {
-      console.error("Error fetching content items:", error)
-      throw new Error(`Failed to fetch content items: ${error instanceof Error ? error.message : "Unknown error"}`)
+    if (campaignId) {
+      query += ` AND campaign_id = $${params.length + 1}`
+      params.push(campaignId)
     }
-  }
 
-  async getContentByClientId(clientId: string): Promise<ContentItem[]> {
-    try {
-      const result = await this.sql`
-        SELECT * FROM content_items 
-        WHERE client_id = ${clientId}
-        ORDER BY created_at DESC
-      `
-      return result as ContentItem[]
-    } catch (error) {
-      console.error("Error fetching content by client:", error)
-      throw new Error(`Failed to fetch content: ${error instanceof Error ? error.message : "Unknown error"}`)
+    query += ` ORDER BY created_at DESC`
+
+    const result = await sql.unsafe(query, params)
+    return result as Content[]
+  },
+
+  async getContentItem(id: number): Promise<Content | null> {
+    const result = await sql`SELECT * FROM content WHERE id = ${id}`
+    return (result[0] as Content) || null
+  },
+
+  async createContent(content: Omit<Content, "id" | "created_at" | "updated_at">): Promise<Content> {
+    const result = await sql`
+      INSERT INTO content (client_id, campaign_id, title, content, media_urls, hashtags, platforms, status, scheduled_for)
+      VALUES (${content.client_id}, ${content.campaign_id}, ${content.title}, ${content.content},
+              ${JSON.stringify(content.media_urls)}, ${JSON.stringify(content.hashtags)}, 
+              ${JSON.stringify(content.platforms)}, ${content.status}, ${content.scheduled_for})
+      RETURNING *
+    `
+    return result[0] as Content
+  },
+
+  async updateContent(id: number, updates: Partial<Content>): Promise<Content> {
+    const result = await sql`
+      UPDATE content 
+      SET title = COALESCE(${updates.title}, title),
+          content = COALESCE(${updates.content}, content),
+          media_urls = COALESCE(${JSON.stringify(updates.media_urls)}, media_urls),
+          hashtags = COALESCE(${JSON.stringify(updates.hashtags)}, hashtags),
+          platforms = COALESCE(${JSON.stringify(updates.platforms)}, platforms),
+          status = COALESCE(${updates.status}, status),
+          scheduled_for = COALESCE(${updates.scheduled_for}, scheduled_for),
+          published_at = COALESCE(${updates.published_at}, published_at),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+      RETURNING *
+    `
+    return result[0] as Content
+  },
+
+  async deleteContent(id: number): Promise<void> {
+    await sql`DELETE FROM content WHERE id = ${id}`
+  },
+
+  // Social Token operations
+  async getSocialTokensByClient(clientId: number): Promise<SocialToken[]> {
+    const result = await sql`
+      SELECT * FROM client_social_tokens 
+      WHERE client_id = ${clientId} 
+      ORDER BY platform
+    `
+    return result as SocialToken[]
+  },
+
+  async getSocialToken(clientId: number, platform: string): Promise<SocialToken | null> {
+    const result = await sql`
+      SELECT * FROM client_social_tokens 
+      WHERE client_id = ${clientId} AND platform = ${platform}
+    `
+    return (result[0] as SocialToken) || null
+  },
+
+  async createSocialToken(token: Omit<SocialToken, "id" | "created_at" | "updated_at">): Promise<SocialToken> {
+    const result = await sql`
+      INSERT INTO client_social_tokens 
+      (client_id, platform, access_token, refresh_token, expires_at, permissions, platform_user_id, platform_username, last_synced)
+      VALUES (${token.client_id}, ${token.platform}, ${token.access_token}, ${token.refresh_token}, 
+              ${token.expires_at}, ${JSON.stringify(token.permissions)}, ${token.platform_user_id}, 
+              ${token.platform_username}, ${token.last_synced})
+      ON CONFLICT (client_id, platform) 
+      DO UPDATE SET 
+        access_token = EXCLUDED.access_token,
+        refresh_token = EXCLUDED.refresh_token,
+        expires_at = EXCLUDED.expires_at,
+        permissions = EXCLUDED.permissions,
+        platform_user_id = EXCLUDED.platform_user_id,
+        platform_username = EXCLUDED.platform_username,
+        last_synced = EXCLUDED.last_synced,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `
+    return result[0] as SocialToken
+  },
+
+  async updateSocialToken(clientId: number, platform: string, updates: Partial<SocialToken>): Promise<SocialToken> {
+    const result = await sql`
+      UPDATE client_social_tokens 
+      SET access_token = COALESCE(${updates.access_token}, access_token),
+          refresh_token = COALESCE(${updates.refresh_token}, refresh_token),
+          expires_at = COALESCE(${updates.expires_at}, expires_at),
+          permissions = COALESCE(${JSON.stringify(updates.permissions)}, permissions),
+          platform_user_id = COALESCE(${updates.platform_user_id}, platform_user_id),
+          platform_username = COALESCE(${updates.platform_username}, platform_username),
+          last_synced = COALESCE(${updates.last_synced}, last_synced),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE client_id = ${clientId} AND platform = ${platform}
+      RETURNING *
+    `
+    return result[0] as SocialToken
+  },
+
+  async deleteSocialToken(clientId: number, platform: string): Promise<void> {
+    await sql`DELETE FROM client_social_tokens WHERE client_id = ${clientId} AND platform = ${platform}`
+  },
+
+  // Stats operations
+  async getClientStats(clientId: number) {
+    const [campaigns, content, scheduledContent] = await Promise.all([
+      sql`SELECT COUNT(*) as count FROM campaigns WHERE client_id = ${clientId}`,
+      sql`SELECT COUNT(*) as count FROM content WHERE client_id = ${clientId}`,
+      sql`SELECT COUNT(*) as count FROM content WHERE client_id = ${clientId} AND status = 'scheduled'`,
+    ])
+
+    return {
+      totalCampaigns: Number.parseInt(campaigns[0].count),
+      totalContent: Number.parseInt(content[0].count),
+      scheduledPosts: Number.parseInt(scheduledContent[0].count),
     }
-  }
-
-  // Scheduled posts operations
-  async createScheduledPost(postData: ScheduledPostInsert): Promise<ScheduledPost> {
-    try {
-      const result = await this.sql`
-        INSERT INTO scheduled_posts (campaign_id, client_id, platform, content, media_urls, hashtags, scheduled_time, status)
-        VALUES (${postData.campaign_id}, ${postData.client_id}, ${postData.platform}, 
-                ${postData.content}, ${postData.media_urls}, ${postData.hashtags}, 
-                ${postData.scheduled_time}, ${postData.status || "draft"})
-        RETURNING *
-      `
-      return result[0] as ScheduledPost
-    } catch (error) {
-      console.error("Error creating scheduled post:", error)
-      throw new Error(`Failed to create scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  async getScheduledPosts(): Promise<ScheduledPost[]> {
-    try {
-      const result = await this.sql`
-        SELECT * FROM scheduled_posts 
-        ORDER BY scheduled_time ASC
-      `
-      return result as ScheduledPost[]
-    } catch (error) {
-      console.error("Error fetching scheduled posts:", error)
-      throw new Error(`Failed to fetch scheduled posts: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  async getScheduledPostsByClientId(clientId: string): Promise<ScheduledPost[]> {
-    try {
-      const result = await this.sql`
-        SELECT * FROM scheduled_posts 
-        WHERE client_id = ${clientId}
-        ORDER BY scheduled_time ASC
-      `
-      return result as ScheduledPost[]
-    } catch (error) {
-      console.error("Error fetching scheduled posts by client:", error)
-      throw new Error(`Failed to fetch scheduled posts: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  async updateScheduledPost(id: string, updates: Partial<ScheduledPost>): Promise<ScheduledPost | null> {
-    try {
-      const result = await this.sql`
-        UPDATE scheduled_posts 
-        SET ${this.sql(updates)}, updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *
-      `
-      return result.length > 0 ? (result[0] as ScheduledPost) : null
-    } catch (error) {
-      console.error("Error updating scheduled post:", error)
-      throw new Error(`Failed to update scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  // Analytics and dashboard queries
-  async getDashboardStats(clientId?: string) {
-    try {
-      const [clients, campaigns, scheduledPosts] = await Promise.all([
-        clientId ? [await this.getClientById(clientId)] : this.getClients(),
-        clientId ? this.getCampaignsByClientId(clientId) : this.getCampaigns(),
-        clientId ? this.getScheduledPostsByClientId(clientId) : this.getScheduledPosts(),
-      ])
-
-      const activeCampaigns = campaigns.filter((c) => c.status === "active")
-      const upcomingPosts = scheduledPosts.filter(
-        (p) => p.status === "scheduled" && new Date(p.scheduled_time) > new Date(),
-      )
-
-      return {
-        totalClients: clients.length,
-        totalCampaigns: campaigns.length,
-        activeCampaigns: activeCampaigns.length,
-        scheduledPosts: upcomingPosts.length,
-        campaigns,
-        upcomingPosts: upcomingPosts.slice(0, 5),
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard stats:", error)
-      throw error
-    }
-  }
-
-  // Test database connection
-  async testConnection(): Promise<boolean> {
-    try {
-      await this.sql`SELECT 1 as test`
-      return true
-    } catch (error) {
-      console.error("Database connection test failed:", error)
-      return false
-    }
-  }
+  },
 }
-
-// Mock database for when DATABASE_URL is missing
-class MockDatabase {
-  async getClients(): Promise<Client[]> {
-    console.warn("MockDatabase: Returning empty clients array (DATABASE_URL not configured)")
-    return []
-  }
-
-  async createClient(clientData: ClientInsert): Promise<Client> {
-    throw new Error("Database not configured. Please add DATABASE_URL environment variable.")
-  }
-
-  async getClientById(id: string): Promise<Client | null> {
-    return null
-  }
-
-  async updateClient(id: string, updates: Partial<Client>): Promise<Client | null> {
-    return null
-  }
-
-  async deleteClient(id: string): Promise<boolean> {
-    return false
-  }
-
-  async createCampaign(campaignData: CampaignInsert): Promise<Campaign> {
-    throw new Error("Database not configured. Please add DATABASE_URL environment variable.")
-  }
-
-  async getCampaigns(): Promise<Campaign[]> {
-    return []
-  }
-
-  async getCampaignById(id: string): Promise<Campaign | null> {
-    return null
-  }
-
-  async getCampaignsByClientId(clientId: string): Promise<Campaign[]> {
-    return []
-  }
-
-  async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | null> {
-    return null
-  }
-
-  async deleteCampaign(id: string): Promise<boolean> {
-    return false
-  }
-
-  async createContentItem(contentData: ContentItemInsert): Promise<ContentItem> {
-    throw new Error("Database not configured. Please add DATABASE_URL environment variable.")
-  }
-
-  async getContentItems(): Promise<ContentItem[]> {
-    return []
-  }
-
-  async getContentByClientId(clientId: string): Promise<ContentItem[]> {
-    return []
-  }
-
-  async createScheduledPost(postData: ScheduledPostInsert): Promise<ScheduledPost> {
-    throw new Error("Database not configured. Please add DATABASE_URL environment variable.")
-  }
-
-  async getScheduledPosts(): Promise<ScheduledPost[]> {
-    return []
-  }
-
-  async getScheduledPostsByClientId(clientId: string): Promise<ScheduledPost[]> {
-    return []
-  }
-
-  async updateScheduledPost(id: string, updates: Partial<ScheduledPost>): Promise<ScheduledPost | null> {
-    return null
-  }
-
-  async testConnection(): Promise<boolean> {
-    return false
-  }
-}
-
-// Export the appropriate database instance
-export const db = connectionString ? new NeonDatabase() : new MockDatabase()
