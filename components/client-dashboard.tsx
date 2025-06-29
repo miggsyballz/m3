@@ -5,6 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar, TrendingUp, Users, Plus, Eye, AlertCircle, RefreshCw, Zap } from "lucide-react"
+import { CampaignTimeline } from "@/components/campaign-timeline"
+import { ContentLibraryTable } from "@/components/content-library-table"
+import { ScheduledContentQueue } from "@/components/scheduled-content-queue"
 
 interface Client {
   id: string
@@ -210,7 +213,7 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">2</div>
                 <p className="text-xs text-muted-foreground">Currently running</p>
               </CardContent>
             </Card>
@@ -221,65 +224,78 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">5</div>
                 <p className="text-xs text-muted-foreground">Next 7 days</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Posts</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">23</div>
                 <p className="text-xs text-muted-foreground">All time</p>
               </CardContent>
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Client List</CardTitle>
-              <CardDescription>All your clients from Neon database</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {clients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">{client.client_name}</p>
-                      <p className="text-sm text-muted-foreground">{client.contact_email}</p>
-                      <div className="flex gap-2 mt-1">
-                        {client.ig_handle && (
-                          <Badge variant="outline" className="text-xs">
-                            IG
-                          </Badge>
-                        )}
-                        {client.fb_page && (
-                          <Badge variant="outline" className="text-xs">
-                            FB
-                          </Badge>
-                        )}
-                        {client.linkedin_url && (
-                          <Badge variant="outline" className="text-xs">
-                            LI
-                          </Badge>
-                        )}
+          {/* Dynamic Components based on your specifications */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <CampaignTimeline
+              selectedClient={selectedClient}
+              onClickItem={(campaign) => console.log("View campaign details:", campaign)}
+            />
+            <ScheduledContentQueue selectedClient={selectedClient} />
+          </div>
+
+          <ContentLibraryTable selectedClient={selectedClient} />
+
+          {clients.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Client List</CardTitle>
+                <CardDescription>All your clients from Neon database</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {clients.map((client) => (
+                    <div key={client.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{client.client_name}</p>
+                        <p className="text-sm text-muted-foreground">{client.contact_email}</p>
+                        <div className="flex gap-2 mt-1">
+                          {client.ig_handle && (
+                            <Badge variant="outline" className="text-xs">
+                              IG
+                            </Badge>
+                          )}
+                          {client.fb_page && (
+                            <Badge variant="outline" className="text-xs">
+                              FB
+                            </Badge>
+                          )}
+                          {client.linkedin_url && (
+                            <Badge variant="outline" className="text-xs">
+                              LI
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">2 campaigns</p>
+                        <Button variant="outline" size="sm" className="mt-1 bg-transparent">
+                          <Eye className="mr-2 h-4 w-4" />
+                          View
+                        </Button>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">0 campaigns</p>
-                      <Button variant="outline" size="sm" className="mt-1 bg-transparent">
-                        <Eye className="mr-2 h-4 w-4" />
-                        View
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
