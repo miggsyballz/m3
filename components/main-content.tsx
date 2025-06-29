@@ -9,10 +9,10 @@ import { CampaignBuilder } from "@/components/campaign-builder"
 import { CalendarView } from "@/components/calendar-view"
 import { ContentLibrary } from "@/components/content-library"
 import { ContentManagement } from "@/components/content-management"
-import { AIRewriter } from "@/components/ai-rewriter"
 import { HashtagTools } from "@/components/hashtag-tools"
 import { SettingsView } from "@/components/settings-view"
 import { CreateClient } from "@/components/create-client"
+import { AIRewriterStandalone } from "@/components/ai-rewriter-standalone"
 
 interface MainContentProps {
   activeTab: string
@@ -85,7 +85,7 @@ export function MainContent({ activeTab, setActiveTab, selectedClient }: MainCon
           </TabsContent>
 
           <TabsContent value="AI Rewriter" className="mt-4">
-            <AIRewriter />
+            <AIRewriterStandalone />
           </TabsContent>
 
           <TabsContent value="Hashtag Tools" className="mt-4">

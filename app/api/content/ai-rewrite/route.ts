@@ -9,6 +9,17 @@ import { openai } from "@ai-sdk/openai"
  */
 export async function POST(request: NextRequest) {
   try {
+    // Check for API key first
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        {
+          error: "OpenAI API key not configured. Please add OPENAI_API_KEY to your environment variables.",
+          needsSetup: true,
+        },
+        { status: 400 },
+      )
+    }
+
     const { captions, tone = "Friendly", platform = "Instagram" } = await request.json()
 
     if (!captions || !Array.isArray(captions)) {
@@ -23,7 +34,7 @@ export async function POST(request: NextRequest) {
       const caption = captions[i]
       try {
         // Exact instruction from your Python function
-        const instruction = 
+        const instruction =
           `You are a social media marketing assistant. Rewrite the following caption ` +
           `to match the tone and format of a high-converting ${platform} post. Use a ${tone.toLowerCase()} voice. ` +
           `Include relevant hashtags if helpful. Keep it under 200 words.\n\n`
@@ -31,17 +42,15 @@ export async function POST(request: NextRequest) {
         const fullPrompt = instruction + caption
 
         const { text } = await generateText({
-          model: openai("gpt-4o"), // Using GPT-4o (latest version)
-          messages: [
-            { role: "system", content: "You are a helpful social media assistant." },
-            { role: "user", content: fullPrompt }
-          ],
+          model: openai("gpt-4o"),
+          system: "You are a helpful social media assistant.",
+          prompt: fullPrompt, // Use prompt instead of messages for simpler structure
         })
 
         rewrittenCaptions.push(text.trim())
       } catch (error) {
         console.error(`Error rewriting caption ${i + 1}:`, error)
-        const errorMessage = `[Error rewriting caption: ${error instanceof Error ? error.message : 'Unknown error'}]`
+        const errorMessage = `[Error rewriting caption: ${error instanceof Error ? error.message : "Unknown error"}]`
         rewrittenCaptions.push(errorMessage)
         errors.push(`Caption ${i + 1}: ${errorMessage}`)
       }
@@ -55,7 +64,7 @@ export async function POST(request: NextRequest) {
       settings: {
         platform,
         tone,
-        model: "gpt-4o"
+        model: "gpt-4o",
       },
       message: `Successfully processed ${captions.length} captions (${rewrittenCaptions.length - errors.length} successful, ${errors.length} errors)`,
     })

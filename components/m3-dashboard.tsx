@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MainContent } from "@/components/main-content"
+import { PersistentSaveManager } from "@/components/persistent-save-manager"
+import { CampaignManagerChat } from "@/components/campaign-manager-chat"
 
 export function M3Dashboard() {
   const [activeTab, setActiveTab] = useState("Client Dashboard")
@@ -52,6 +54,15 @@ export function M3Dashboard() {
     return () => clearInterval(interval)
   }, [])
 
+  const handleSaveProgress = () => {
+    console.log("Manual save triggered for:", activeTab, selectedClient)
+  }
+
+  const handleLoadProgress = (data: any) => {
+    console.log("Loading saved progress:", data)
+    // You can implement form restoration logic here
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar
@@ -63,6 +74,17 @@ export function M3Dashboard() {
         loading={loading}
       />
       <MainContent activeTab={activeTab} setActiveTab={setActiveTab} selectedClient={selectedClient} />
+
+      {/* Persistent Save Manager - Bottom Left */}
+      <PersistentSaveManager
+        activeTab={activeTab}
+        selectedClient={selectedClient}
+        onSave={handleSaveProgress}
+        onLoad={handleLoadProgress}
+      />
+
+      {/* Campaign Manager Chat - Bottom Right */}
+      <CampaignManagerChat activeTab={activeTab} selectedClient={selectedClient} />
     </SidebarProvider>
   )
 }
