@@ -1,3 +1,4 @@
+export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import { db } from "@/lib/database"
 
@@ -17,14 +18,14 @@ export async function POST() {
       })
     }
 
-    // Create default client for MaxxBeats
+    // Create default client for Mig Media
     const defaultClient = await db.createClient({
-      client_name: "MaxxBeats Studio",
-      ig_handle: "@maxxbeats",
-      fb_page: "facebook.com/maxxbeats",
-      linkedin_url: "linkedin.com/company/maxxbeats",
-      contact_email: "mig@maxxbeats.com",
-      notes: "Main music production client - Mr. Mig's personal brand and studio",
+      client_name: "Mig Media",
+      ig_handle: "@migmedia",
+      fb_page: "facebook.com/migmedia",
+      linkedin_url: "linkedin.com/company/migmedia",
+      contact_email: "hello@migmedia.com",
+      notes: "Main marketing agency client - Mig's personal brand and business",
     })
 
     return NextResponse.json(

@@ -14,10 +14,24 @@ export function CalendarView({ selectedClient }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
 
   const scheduledPosts = [
-    { id: 1, title: "New Beat Drop", platform: "Instagram", time: "10:00 AM", date: "2024-01-15", status: "scheduled" },
-    { id: 2, title: "Studio Session", platform: "TikTok", time: "2:00 PM", date: "2024-01-15", status: "draft" },
-    { id: 3, title: "Producer Tips", platform: "Twitter", time: "6:00 PM", date: "2024-01-16", status: "scheduled" },
-    { id: 4, title: "Beat Preview", platform: "Instagram", time: "12:00 PM", date: "2024-01-17", status: "scheduled" },
+    {
+      id: 1,
+      title: "Product Launch",
+      platform: "Instagram",
+      time: "10:00 AM",
+      date: "2024-01-15",
+      status: "scheduled",
+    },
+    { id: 2, title: "Company Update", platform: "TikTok", time: "2:00 PM", date: "2024-01-15", status: "draft" },
+    { id: 3, title: "Industry Tips", platform: "Twitter", time: "6:00 PM", date: "2024-01-16", status: "scheduled" },
+    {
+      id: 4,
+      title: "Service Preview",
+      platform: "Instagram",
+      time: "12:00 PM",
+      date: "2024-01-17",
+      status: "scheduled",
+    },
     { id: 5, title: "Behind Scenes", platform: "YouTube", time: "4:00 PM", date: "2024-01-18", status: "draft" },
   ]
 

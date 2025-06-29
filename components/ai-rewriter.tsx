@@ -39,11 +39,11 @@ export function AIRewriter() {
     setIsLoading(true)
     // Simulate AI processing
     setTimeout(() => {
-      const sampleRewrite = `🎵 Just dropped another fire beat! This trap banger is perfect for your next project. The 808s hit different and the melody will have you vibing all day. 
+      const sampleRewrite = `🚀 Exciting news! We're launching our new service that will transform how you approach your business goals. This innovative solution is designed to streamline your workflow and boost productivity.
 
-Check it out on MaxxBeats.com and let me know what you think! 
+Check out our latest offering and discover how it can benefit your business! 
 
-#TrapBeats #ProducerLife #MaxxBeats #MusicProducer #BeatMaker #HipHop #StudioLife #NewMusic`
+#BusinessGrowth #Innovation #Productivity #MigMedia #Marketing #BusinessSolutions #Entrepreneurship #Success`
 
       setRewrittenText(sampleRewrite)
       setIsLoading(false)
@@ -226,7 +226,7 @@ Check it out on MaxxBeats.com and let me know what you think!
                   <h4 className="font-medium mb-2">Optimization Tips:</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
                     <li>• Added relevant emojis to increase engagement</li>
-                    <li>• Optimized hashtags for music production niche</li>
+                    <li>• Optimized hashtags for business and marketing niche</li>
                     <li>• Included call-to-action to drive traffic</li>
                     <li>• Adjusted tone to match {tone} style</li>
                   </ul>

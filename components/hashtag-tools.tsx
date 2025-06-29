@@ -15,25 +15,25 @@ export function HashtagTools() {
   const [isLoading, setIsLoading] = useState(false)
 
   const trendingHashtags = [
-    "#BeatMaker",
-    "#ProducerLife",
-    "#TrapBeats",
-    "#HipHopProducer",
-    "#StudioLife",
-    "#MusicProduction",
-    "#BeatStars",
-    "#TypeBeat",
-    "#ProducerTips",
-    "#BeatMaking",
-    "#MusicProducer",
-    "#InstrumentalBeats",
+    "#Marketing",
+    "#BusinessGrowth",
+    "#DigitalMarketing",
+    "#Entrepreneur",
+    "#SmallBusiness",
+    "#SocialMedia",
+    "#ContentMarketing",
+    "#Branding",
+    "#MarketingTips",
+    "#BusinessStrategy",
+    "#OnlineMarketing",
+    "#MarketingAgency",
   ]
 
   const hashtagCategories = {
-    "Music Production": ["#BeatMaker", "#ProducerLife", "#MusicProduction", "#StudioLife", "#ProducerTips"],
-    "Beat Types": ["#TrapBeats", "#TypeBeat", "#InstrumentalBeats", "#HipHopBeats", "#RnBBeats"],
-    Industry: ["#BeatStars", "#MusicIndustry", "#IndependentArtist", "#MusicBusiness", "#BeatSales"],
-    Engagement: ["#NewMusic", "#MusicDaily", "#BeatOfTheDay", "#ProducerCommunity", "#MusicLife"],
+    "Business Growth": ["#BusinessGrowth", "#Entrepreneur", "#SmallBusiness", "#StartupLife", "#BusinessTips"],
+    Marketing: ["#DigitalMarketing", "#ContentMarketing", "#SocialMedia", "#MarketingStrategy", "#OnlineMarketing"],
+    Industry: ["#MarketingAgency", "#BusinessConsulting", "#ProfessionalServices", "#B2B", "#B2C"],
+    Engagement: ["#MondayMotivation", "#TipTuesday", "#WisdomWednesday", "#ThrowbackThursday", "#FeatureFriday"],
   }
 
   const generateHashtags = async () => {
@@ -44,27 +44,27 @@ export function HashtagTools() {
     setTimeout(() => {
       const sampleHashtags = [
         `#${keyword}`,
-        `#${keyword}Beats`,
-        `#${keyword}Producer`,
-        `#${keyword}Music`,
-        `#${keyword}Type`,
-        `#${keyword}Instrumental`,
-        "#BeatMaker",
-        "#ProducerLife",
-        "#MusicProduction",
-        "#StudioLife",
-        "#NewMusic",
-        "#BeatOfTheDay",
-        "#ProducerTips",
-        "#MusicDaily",
-        "#IndependentProducer",
-        "#BeatStars",
-        "#MusicIndustry",
-        "#SoundDesign",
-        "#MixingAndMastering",
-        "#MusicTech",
-        "#DAWLife",
-        "#ProducerCommunity",
+        `#${keyword}Marketing`,
+        `#${keyword}Business`,
+        `#${keyword}Strategy`,
+        `#${keyword}Growth`,
+        `#${keyword}Solutions`,
+        "#Marketing",
+        "#BusinessGrowth",
+        "#DigitalMarketing",
+        "#SmallBusiness",
+        "#Entrepreneur",
+        "#BusinessStrategy",
+        "#MarketingTips",
+        "#OnlineMarketing",
+        "#ProfessionalServices",
+        "#MarketingAgency",
+        "#BusinessConsulting",
+        "#ContentMarketing",
+        "#SocialMediaMarketing",
+        "#BrandStrategy",
+        "#LeadGeneration",
+        "#BusinessDevelopment",
       ]
       setGeneratedHashtags(sampleHashtags)
       setIsLoading(false)
@@ -110,7 +110,7 @@ export function HashtagTools() {
             <CardContent className="space-y-4">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Enter keyword (e.g., trap, beats, producer)"
+                  placeholder="Enter keyword (e.g., marketing, business, consulting)"
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && generateHashtags()}
@@ -177,7 +177,7 @@ export function HashtagTools() {
                 <TrendingUp className="h-5 w-5" />
                 Trending Now
               </CardTitle>
-              <CardDescription>Popular hashtags in music production</CardDescription>
+              <CardDescription>Popular hashtags in business and marketing</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">

@@ -1,3 +1,5 @@
+export const runtime = "nodejs" // ❗ run in the Node.js runtime, not Edge
+export const dynamic = "force-dynamic" // optional – disable caching while developing
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/database"
 

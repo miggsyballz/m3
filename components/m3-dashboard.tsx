@@ -18,15 +18,24 @@ export function M3Dashboard() {
   const loadClients = async () => {
     try {
       const response = await fetch("/api/clients")
-      if (response.ok) {
-        const data = await response.json()
 
-        // Handle both success (array) and error (object with clients array) responses
-        if (Array.isArray(data)) {
-          setClients(data.map((client: any) => client.client_name))
-        } else if (data.clients && Array.isArray(data.clients)) {
-          setClients(data.clients.map((client: any) => client.client_name))
-        }
+      let data: any = null
+      try {
+        data = await response.json()
+      } catch {
+        // If JSON parsing fails, set empty array
+        setClients([])
+        setLoading(false)
+        return
+      }
+
+      // Handle both success (array) and error (object with clients array) responses
+      if (Array.isArray(data)) {
+        setClients(data.map((client: any) => client.client_name))
+      } else if (data.clients && Array.isArray(data.clients)) {
+        setClients(data.clients.map((client: any) => client.client_name))
+      } else {
+        setClients([])
       }
     } catch (error) {
       console.error("Error loading clients:", error)

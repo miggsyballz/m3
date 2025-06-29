@@ -159,7 +159,7 @@ export function CreateClient() {
                 <Input
                   id="client_name"
                   name="client_name"
-                  placeholder="e.g., Rising Star Records"
+                  placeholder="e.g., Tech Solutions Inc."
                   value={formData.client_name}
                   onChange={(e) => handleInputChange("client_name", e.target.value)}
                   required

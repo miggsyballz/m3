@@ -23,7 +23,14 @@ export function CampaignBuilder({ selectedClient }: CampaignBuilderProps) {
   const [newHashtag, setNewHashtag] = useState("")
 
   const platformOptions = ["Instagram", "TikTok", "Twitter", "Facebook", "LinkedIn", "YouTube"]
-  const campaignTypes = ["Product Launch", "Beat Drop", "Behind the Scenes", "Educational", "Promotional"]
+  const campaignTypes = [
+    "Product Launch",
+    "Brand Awareness",
+    "Lead Generation",
+    "Educational",
+    "Promotional",
+    "Event Marketing",
+  ]
 
   const togglePlatform = (platform: string) => {
     setPlatforms((prev) => (prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]))
@@ -70,7 +77,7 @@ export function CampaignBuilder({ selectedClient }: CampaignBuilderProps) {
               <Label htmlFor="campaign-name">Campaign Name</Label>
               <Input
                 id="campaign-name"
-                placeholder="e.g., Beat Drop Friday"
+                placeholder="e.g., Q1 Product Launch"
                 value={campaignName}
                 onChange={(e) => setCampaignName(e.target.value)}
               />
@@ -108,9 +115,9 @@ export function CampaignBuilder({ selectedClient }: CampaignBuilderProps) {
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MaxxBeats Studio">MaxxBeats Studio</SelectItem>
-                  <SelectItem value="Artist Collective">Artist Collective</SelectItem>
-                  <SelectItem value="Indie Producer">Indie Producer</SelectItem>
+                  <SelectItem value="Mig Media">Mig Media</SelectItem>
+                  <SelectItem value="Tech Startup">Tech Startup</SelectItem>
+                  <SelectItem value="Local Business">Local Business</SelectItem>
                 </SelectContent>
               </Select>
             </div>

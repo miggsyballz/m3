@@ -189,8 +189,8 @@ export function AppSidebar({
 
       <SidebarFooter className="p-4">
         <div className="text-xs text-muted-foreground">
-          <p>© 2024 MaxxBeats.com</p>
-          <p>Mr. Mig's Marketing Suite</p>
+          <p>© 2024 Mig Media</p>
+          <p>Marketing Machine Suite</p>
           <p className="text-green-600">🟢 Connected to Neon</p>
         </div>
       </SidebarFooter>
