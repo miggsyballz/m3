@@ -1,95 +1,116 @@
+export const runtime = "nodejs"
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 
 export async function POST(request: NextRequest) {
   try {
-    const { code, state, clientId, platform } = await request.json()
+    const { code, clientId, platform, state } = await request.json()
 
-    if (!code || !state || !clientId || !platform) {
+    if (!code || !clientId || !platform) {
       return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
     }
 
-    let tokenData = null
+    let tokenData
 
-    switch (platform) {
-      case "facebook":
-      case "instagram":
-        tokenData = await exchangeFacebookToken(code, platform)
-        break
-
-      default:
-        return NextResponse.json({ error: "Unsupported platform" }, { status: 400 })
-    }
-
-    if (!tokenData) {
-      return NextResponse.json({ error: "Failed to exchange token" }, { status: 500 })
+    if (platform === "facebook" || platform === "instagram") {
+      // Exchange code for Facebook/Instagram access token
+      tokenData = await exchangeFacebookToken(code, platform)
+    } else if (platform === "linkedin") {
+      tokenData = await exchangeLinkedInToken(code)
+    } else if (platform === "twitter") {
+      tokenData = await exchangeTwitterToken(code)
+    } else if (platform === "youtube") {
+      tokenData = await exchangeYouTubeToken(code)
+    } else if (platform === "tiktok") {
+      tokenData = await exchangeTikTokToken(code)
+    } else {
+      return NextResponse.json({ error: "Unsupported platform" }, { status: 400 })
     }
 
     // Save token to database
-    await db.saveSocialToken({
-      clientId: Number.parseInt(clientId),
+    const socialToken = await db.saveSocialToken({
+      client_id: clientId,
       platform,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token || null,
-      expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null,
-      userInfo: tokenData.user_info || null,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
+      permissions: getPlatformPermissions(platform),
+      platform_user_id: tokenData.platform_user_id,
+      platform_username: tokenData.platform_username,
     })
 
-    return NextResponse.json({ success: true, platform })
+    return NextResponse.json({
+      success: true,
+      message: `Successfully connected ${platform}`,
+      token: socialToken,
+    })
   } catch (error) {
-    console.error("Token exchange error:", error)
-    return NextResponse.json({ error: "Failed to exchange token" }, { status: 500 })
+    console.error("[POST /api/oauth/exchange]", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to exchange token" },
+      { status: 500 },
+    )
   }
 }
 
 async function exchangeFacebookToken(code: string, platform: string) {
-  const clientId = process.env.FACEBOOK_CLIENT_ID
-  const clientSecret = process.env.FACEBOOK_CLIENT_SECRET
+  const tokenUrl = "https://graph.facebook.com/v18.0/oauth/access_token"
   const redirectUri = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/oauth/callback`
 
-  if (!clientId || !clientSecret) {
-    throw new Error("Facebook credentials not configured")
-  }
-
-  // Exchange code for access token
-  const tokenResponse = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-      code: code,
-    }),
+  const params = new URLSearchParams({
+    client_id: process.env.FACEBOOK_CLIENT_ID!,
+    client_secret: process.env.FACEBOOK_CLIENT_SECRET!,
+    redirect_uri: redirectUri,
+    code,
   })
 
-  const tokenData = await tokenResponse.json()
+  const response = await fetch(`${tokenUrl}?${params}`)
+  const data = await response.json()
 
-  if (!tokenResponse.ok) {
-    throw new Error(tokenData.error?.message || "Failed to exchange Facebook token")
+  if (data.error) {
+    throw new Error(`Facebook OAuth error: ${data.error.message}`)
   }
 
-  // Get long-lived token
-  const longLivedResponse = await fetch(
-    `https://graph.facebook.com/v18.0/oauth/access_token?` +
-      `grant_type=fb_exchange_token&` +
-      `client_id=${clientId}&` +
-      `client_secret=${clientSecret}&` +
-      `fb_exchange_token=${tokenData.access_token}`,
-  )
-
-  const longLivedData = await longLivedResponse.json()
-  const finalToken = longLivedResponse.ok ? longLivedData.access_token : tokenData.access_token
-
   // Get user info
-  const userResponse = await fetch(
-    `https://graph.facebook.com/v18.0/me?fields=id,name,email&access_token=${finalToken}`,
-  )
+  const userResponse = await fetch(`https://graph.facebook.com/me?access_token=${data.access_token}&fields=id,name`)
   const userData = await userResponse.json()
 
   return {
-    access_token: finalToken,
-    expires_in: longLivedData.expires_in || tokenData.expires_in,
-    user_info: userData,
+    access_token: data.access_token,
+    expires_in: data.expires_in,
+    platform_user_id: userData.id,
+    platform_username: userData.name,
   }
+}
+
+async function exchangeLinkedInToken(code: string) {
+  // Implement LinkedIn token exchange
+  throw new Error("LinkedIn OAuth not yet implemented")
+}
+
+async function exchangeTwitterToken(code: string) {
+  // Implement Twitter OAuth 2.0 token exchange
+  throw new Error("Twitter OAuth not yet implemented")
+}
+
+async function exchangeYouTubeToken(code: string) {
+  // Implement YouTube (Google) OAuth token exchange
+  throw new Error("YouTube OAuth not yet implemented")
+}
+
+async function exchangeTikTokToken(code: string) {
+  // Implement TikTok OAuth token exchange
+  throw new Error("TikTok OAuth not yet implemented")
+}
+
+function getPlatformPermissions(platform: string): string[] {
+  const permissions: Record<string, string[]> = {
+    instagram: ["publish_posts", "read_insights"],
+    facebook: ["publish_posts", "manage_pages", "read_insights"],
+    linkedin: ["publish_posts", "read_profile"],
+    twitter: ["publish_tweets", "read_profile"],
+    youtube: ["upload_videos", "manage_channel"],
+    tiktok: ["upload_videos", "manage_content"],
+  }
+  return permissions[platform] || []
 }

@@ -4,16 +4,21 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Clock, Calendar, Play, Pause, Edit } from "lucide-react"
+import { Clock, Calendar, Play, Pause, Edit, Trash2 } from "lucide-react"
 
 interface ScheduledPost {
   id: string
-  date: string
-  time: string
+  campaign_id: string | null
+  client_id: string
   platform: string
-  campaign_name: string
-  caption: string
-  status: "scheduled" | "publishing" | "failed"
+  content: string
+  media_urls: string[]
+  hashtags: string[]
+  scheduled_time: string
+  status: "draft" | "scheduled" | "published" | "failed"
+  created_at: string
+  updated_at: string
+  campaign_name?: string
 }
 
 interface ScheduledContentQueueProps {
@@ -31,58 +36,23 @@ export function ScheduledContentQueue({ selectedClient }: ScheduledContentQueueP
   const loadScheduledPosts = async () => {
     setLoading(true)
     try {
-      // Mock data for now - replace with actual API call
-      const mockPosts: ScheduledPost[] = [
-        {
-          id: "1",
-          date: "2024-01-20",
-          time: "10:00 AM",
-          platform: "Instagram",
-          campaign_name: "Q1 Brand Awareness",
-          caption:
-            "Monday motivation! Start your week with these productivity tips that will transform your workflow...",
-          status: "scheduled",
-        },
-        {
-          id: "2",
-          date: "2024-01-20",
-          time: "2:00 PM",
-          platform: "LinkedIn",
-          campaign_name: "Product Launch",
-          caption:
-            "Industry insights: The future of digital marketing is evolving rapidly. Here's what you need to know...",
-          status: "scheduled",
-        },
-        {
-          id: "3",
-          date: "2024-01-21",
-          time: "9:00 AM",
-          platform: "TikTok",
-          campaign_name: "Q1 Brand Awareness",
-          caption: "Quick tip Tuesday! Here's how to boost your social media engagement in 60 seconds ⚡",
-          status: "scheduled",
-        },
-        {
-          id: "4",
-          date: "2024-01-21",
-          time: "4:00 PM",
-          platform: "Facebook",
-          campaign_name: "Product Launch",
-          caption: "Behind the scenes: Our team's creative process for developing innovative marketing strategies...",
-          status: "publishing",
-        },
-        {
-          id: "5",
-          date: "2024-01-22",
-          time: "11:00 AM",
-          platform: "Instagram",
-          campaign_name: "Q1 Brand Awareness",
-          caption:
-            "Client success story: How we helped increase their social media engagement by 300% in just 3 months",
-          status: "failed",
-        },
-      ]
-      setScheduledPosts(mockPosts)
+      const url = selectedClient ? `/api/scheduled-posts?clientId=${selectedClient}` : "/api/scheduled-posts"
+
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error("Failed to fetch scheduled posts")
+      }
+
+      const data = await response.json()
+
+      // Filter for upcoming posts only
+      const now = new Date()
+      const upcomingPosts = (data.posts || []).filter((post: ScheduledPost) => {
+        const scheduledDate = new Date(post.scheduled_time)
+        return scheduledDate > now && (post.status === "scheduled" || post.status === "draft")
+      })
+
+      setScheduledPosts(upcomingPosts)
     } catch (error) {
       console.error("Error loading scheduled posts:", error)
       setScheduledPosts([])
@@ -91,10 +61,48 @@ export function ScheduledContentQueue({ selectedClient }: ScheduledContentQueueP
     }
   }
 
+  const handleRetryPost = async (postId: string) => {
+    try {
+      const response = await fetch(`/api/scheduled-posts/${postId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "scheduled" }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to retry post")
+      }
+
+      // Reload posts after retry
+      await loadScheduledPosts()
+    } catch (error) {
+      console.error("Error retrying post:", error)
+    }
+  }
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      const response = await fetch(`/api/scheduled-posts/${postId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete post")
+      }
+
+      // Reload posts after deletion
+      await loadScheduledPosts()
+    } catch (error) {
+      console.error("Error deleting post:", error)
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "scheduled":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+      case "draft":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
       case "publishing":
         return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
       case "failed":
@@ -121,8 +129,8 @@ export function ScheduledContentQueue({ selectedClient }: ScheduledContentQueueP
     return caption.length > maxLength ? caption.substring(0, maxLength) + "..." : caption
   }
 
-  const formatDateTime = (date: string, time: string) => {
-    const postDate = new Date(date)
+  const formatDateTime = (dateTimeString: string) => {
+    const postDate = new Date(dateTimeString)
     const today = new Date()
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -134,7 +142,13 @@ export function ScheduledContentQueue({ selectedClient }: ScheduledContentQueueP
       dateLabel = "Tomorrow"
     }
 
-    return `${dateLabel} at ${time}`
+    const timeLabel = postDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })
+
+    return `${dateLabel} at ${timeLabel}`
   }
 
   if (loading) {
@@ -185,9 +199,11 @@ export function ScheduledContentQueue({ selectedClient }: ScheduledContentQueueP
                     className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       post.status === "scheduled"
                         ? "bg-blue-100 text-blue-600"
-                        : post.status === "publishing"
-                          ? "bg-orange-100 text-orange-600"
-                          : "bg-red-100 text-red-600"
+                        : post.status === "draft"
+                          ? "bg-yellow-100 text-yellow-600"
+                          : post.status === "publishing"
+                            ? "bg-orange-100 text-orange-600"
+                            : "bg-red-100 text-red-600"
                     }`}
                   >
                     {getStatusIcon(post.status)}
@@ -200,11 +216,11 @@ export function ScheduledContentQueue({ selectedClient }: ScheduledContentQueueP
                       <Badge variant="outline">{post.platform}</Badge>
                       <Badge className={getStatusColor(post.status)}>{post.status}</Badge>
                     </div>
-                    <span className="text-sm text-muted-foreground">{formatDateTime(post.date, post.time)}</span>
+                    <span className="text-sm text-muted-foreground">{formatDateTime(post.scheduled_time)}</span>
                   </div>
 
-                  <h4 className="font-medium text-sm mb-1">{post.campaign_name}</h4>
-                  <p className="text-sm text-muted-foreground mb-3">{truncateCaption(post.caption)}</p>
+                  {post.campaign_name && <h4 className="font-medium text-sm mb-1">{post.campaign_name}</h4>}
+                  <p className="text-sm text-muted-foreground mb-3">{truncateCaption(post.content)}</p>
 
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm">
@@ -212,11 +228,15 @@ export function ScheduledContentQueue({ selectedClient }: ScheduledContentQueueP
                       Edit
                     </Button>
                     {post.status === "failed" && (
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => handleRetryPost(post.id)}>
                         <Play className="mr-2 h-4 w-4" />
                         Retry
                       </Button>
                     )}
+                    <Button variant="outline" size="sm" onClick={() => handleDeletePost(post.id)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </Button>
                   </div>
                 </div>
               </div>
