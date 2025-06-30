@@ -5,19 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { useToast } from "@/hooks/use-toast"
 import {
-  Instagram,
   Facebook,
+  Instagram,
   Linkedin,
   Twitter,
   Youtube,
   Music,
-  RefreshCw,
   CheckCircle,
   XCircle,
-  Clock,
-  Unlink,
+  RefreshCw,
+  Calendar,
+  Shield,
 } from "lucide-react"
 
 interface SocialToken {
@@ -29,7 +28,8 @@ interface SocialToken {
   permissions: string[]
   platform_user_id?: string
   platform_username?: string
-  last_synced?: string
+  last_synced: string
+  created_at: string
 }
 
 interface ClientProfileOAuthIntegrationProps {
@@ -38,18 +38,18 @@ interface ClientProfileOAuthIntegrationProps {
 
 const PLATFORMS = [
   {
-    id: "instagram",
-    name: "Instagram",
-    icon: Instagram,
-    color: "bg-gradient-to-r from-purple-500 to-pink-500",
-    permissions: ["publish posts", "read insights"],
-  },
-  {
     id: "facebook",
     name: "Facebook",
     icon: Facebook,
     color: "bg-blue-600",
     permissions: ["publish posts", "manage pages", "read insights"],
+  },
+  {
+    id: "instagram",
+    name: "Instagram",
+    icon: Instagram,
+    color: "bg-gradient-to-r from-purple-500 to-pink-500",
+    permissions: ["publish posts", "read insights"],
   },
   {
     id: "linkedin",
@@ -85,13 +85,12 @@ export function ClientProfileOAuthIntegration({ clientId }: ClientProfileOAuthIn
   const [tokens, setTokens] = useState<SocialToken[]>([])
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
-  const { toast } = useToast()
 
   useEffect(() => {
-    fetchTokens()
+    loadTokens()
   }, [clientId])
 
-  const fetchTokens = async () => {
+  const loadTokens = async () => {
     try {
       const response = await fetch(`/api/clients/${clientId}/social-tokens`)
       if (response.ok) {
@@ -99,12 +98,7 @@ export function ClientProfileOAuthIntegration({ clientId }: ClientProfileOAuthIn
         setTokens(data.tokens || [])
       }
     } catch (error) {
-      console.error("Failed to fetch tokens:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load social media connections",
-        variant: "destructive",
-      })
+      console.error("Failed to load social tokens:", error)
     } finally {
       setLoading(false)
     }
@@ -117,66 +111,38 @@ export function ClientProfileOAuthIntegration({ clientId }: ClientProfileOAuthIn
       const response = await fetch("/api/oauth/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          platform,
-          redirectUrl: `${window.location.origin}/oauth/callback`,
-        }),
+        body: JSON.stringify({ platform, clientId }),
       })
 
       const data = await response.json()
 
       if (data.authUrl) {
         // Open OAuth popup
-        const popup = window.open(
-          data.authUrl,
-          `oauth-${platform}`,
-          "width=600,height=700,scrollbars=yes,resizable=yes",
-        )
+        const popup = window.open(data.authUrl, "oauth", "width=600,height=700,scrollbars=yes,resizable=yes")
 
-        // Listen for popup completion
+        // Listen for OAuth completion
+        const handleMessage = (event: MessageEvent) => {
+          if (event.data.type === "oauth-success") {
+            popup?.close()
+            loadTokens() // Refresh tokens
+            window.removeEventListener("message", handleMessage)
+          }
+        }
+
+        window.addEventListener("message", handleMessage)
+
+        // Check if popup was closed manually
         const checkClosed = setInterval(() => {
           if (popup?.closed) {
             clearInterval(checkClosed)
-            setConnecting(null)
-            fetchTokens() // Refresh tokens after connection
+            window.removeEventListener("message", handleMessage)
           }
         }, 1000)
       }
     } catch (error) {
-      console.error("Failed to connect:", error)
-      toast({
-        title: "Connection Failed",
-        description: `Failed to connect to ${platform}`,
-        variant: "destructive",
-      })
+      console.error("Failed to initiate OAuth:", error)
+    } finally {
       setConnecting(null)
-    }
-  }
-
-  const handleRefresh = async (platform: string) => {
-    try {
-      const response = await fetch("/api/oauth/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, platform }),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Token Refreshed",
-          description: `${platform} connection refreshed successfully`,
-        })
-        fetchTokens()
-      } else {
-        throw new Error("Failed to refresh token")
-      }
-    } catch (error) {
-      toast({
-        title: "Refresh Failed",
-        description: `Failed to refresh ${platform} token`,
-        variant: "destructive",
-      })
     }
   }
 
@@ -185,24 +151,30 @@ export function ClientProfileOAuthIntegration({ clientId }: ClientProfileOAuthIn
       const response = await fetch("/api/oauth/disconnect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, platform }),
+        body: JSON.stringify({ platform, clientId }),
       })
 
       if (response.ok) {
-        toast({
-          title: "Disconnected",
-          description: `${platform} disconnected successfully`,
-        })
-        fetchTokens()
-      } else {
-        throw new Error("Failed to disconnect")
+        loadTokens() // Refresh tokens
       }
     } catch (error) {
-      toast({
-        title: "Disconnect Failed",
-        description: `Failed to disconnect ${platform}`,
-        variant: "destructive",
+      console.error("Failed to disconnect:", error)
+    }
+  }
+
+  const handleRefresh = async (platform: string) => {
+    try {
+      const response = await fetch("/api/oauth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform, clientId }),
       })
+
+      if (response.ok) {
+        loadTokens() // Refresh tokens
+      }
+    } catch (error) {
+      console.error("Failed to refresh token:", error)
     }
   }
 
@@ -210,148 +182,153 @@ export function ClientProfileOAuthIntegration({ clientId }: ClientProfileOAuthIn
     return tokens.find((token) => token.platform === platform)
   }
 
-  const getConnectionStatus = (platform: string) => {
-    const token = getTokenForPlatform(platform)
-    if (!token) return "not_connected"
-
-    if (token.expires_at) {
-      const expiresAt = new Date(token.expires_at)
-      const now = new Date()
-      if (expiresAt <= now) return "expired"
-    }
-
-    return "connected"
+  const isTokenExpired = (token: SocialToken) => {
+    if (!token.expires_at) return false
+    return new Date(token.expires_at) < new Date()
   }
 
-  const formatLastSync = (lastSynced?: string) => {
-    if (!lastSynced) return "Never"
-    return new Date(lastSynced).toLocaleDateString()
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString()
   }
 
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Social Media Integration</CardTitle>
-          <CardDescription>Loading connections...</CardDescription>
-        </CardHeader>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <RefreshCw className="h-6 w-6 animate-spin" />
+            <span className="ml-2">Loading social connections...</span>
+          </div>
+        </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Social Media Integration</CardTitle>
-        <CardDescription>Connect social media accounts to enable automated posting and analytics</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Social Media Integration
+          </CardTitle>
+          <CardDescription>
+            Connect social media accounts to enable posting and analytics for this client.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <div className="grid gap-4">
         {PLATFORMS.map((platform) => {
           const token = getTokenForPlatform(platform.id)
-          const status = getConnectionStatus(platform.id)
+          const isConnected = !!token
+          const isExpired = token ? isTokenExpired(token) : false
           const Icon = platform.icon
-          const isConnecting = connecting === platform.id
 
           return (
-            <div key={platform.id} className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center space-x-4">
-                <div className={`p-2 rounded-lg ${platform.color} text-white`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-medium">{platform.name}</h3>
-                  <div className="flex items-center space-x-2 mt-1">
-                    {status === "connected" && (
-                      <>
-                        <Badge variant="secondary" className="text-green-700 bg-green-100">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Connected
-                        </Badge>
-                        {token?.platform_username && (
-                          <span className="text-sm text-muted-foreground">@{token.platform_username}</span>
-                        )}
-                      </>
-                    )}
-                    {status === "expired" && (
-                      <Badge variant="secondary" className="text-orange-700 bg-orange-100">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Token Expired
-                      </Badge>
-                    )}
-                    {status === "not_connected" && (
-                      <Badge variant="secondary" className="text-gray-700 bg-gray-100">
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Not Connected
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Permissions: {platform.permissions.join(", ")}
-                  </div>
-                  {token && (
-                    <div className="text-xs text-muted-foreground">
-                      Last synced: {formatLastSync(token.last_synced)}
+            <Card key={platform.id}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-lg ${platform.color} text-white`}>
+                      <Icon className="h-6 w-6" />
                     </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="flex items-center space-x-2">
-                {status === "not_connected" && (
-                  <Button onClick={() => handleConnect(platform.id)} disabled={isConnecting} size="sm">
-                    {isConnecting ? (
+                    <div>
+                      <h3 className="font-semibold">{platform.name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        {isConnected ? (
+                          <>
+                            {isExpired ? (
+                              <Badge variant="destructive" className="text-xs">
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Token Expired
+                              </Badge>
+                            ) : (
+                              <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Connected
+                              </Badge>
+                            )}
+                            {token?.platform_username && (
+                              <span className="text-sm text-muted-foreground">@{token.platform_username}</span>
+                            )}
+                          </>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            Not Connected
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {platform.permissions.map((permission) => (
+                          <Badge key={permission} variant="outline" className="text-xs">
+                            {permission}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {isConnected ? (
                       <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Connecting...
+                        {isExpired && (
+                          <Button size="sm" variant="outline" onClick={() => handleRefresh(platform.id)}>
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                            Refresh
+                          </Button>
+                        )}
+                        <Button size="sm" variant="destructive" onClick={() => handleDisconnect(platform.id)}>
+                          Disconnect
+                        </Button>
                       </>
                     ) : (
-                      "Connect"
+                      <Button
+                        size="sm"
+                        onClick={() => handleConnect(platform.id)}
+                        disabled={connecting === platform.id}
+                      >
+                        {connecting === platform.id ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                            Connecting...
+                          </>
+                        ) : (
+                          "Connect"
+                        )}
+                      </Button>
                     )}
-                  </Button>
-                )}
+                  </div>
+                </div>
 
-                {status === "connected" && (
+                {token && (
                   <>
-                    <Button onClick={() => handleRefresh(platform.id)} variant="outline" size="sm">
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Refresh
-                    </Button>
-                    <Button onClick={() => handleDisconnect(platform.id)} variant="outline" size="sm">
-                      <Unlink className="h-4 w-4 mr-2" />
-                      Disconnect
-                    </Button>
+                    <Separator className="my-4" />
+                    <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        <span>Connected: {formatDate(token.created_at)}</span>
+                      </div>
+                      {token.expires_at && (
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>Expires: {formatDate(token.expires_at)}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="h-4 w-4" />
+                        <span>Last Sync: {formatDate(token.last_synced)}</span>
+                      </div>
+                    </div>
                   </>
                 )}
-
-                {status === "expired" && (
-                  <>
-                    <Button onClick={() => handleRefresh(platform.id)} size="sm">
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Refresh Token
-                    </Button>
-                    <Button onClick={() => handleDisconnect(platform.id)} variant="outline" size="sm">
-                      <Unlink className="h-4 w-4 mr-2" />
-                      Disconnect
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           )
         })}
-
-        <Separator />
-
-        <div className="text-sm text-muted-foreground">
-          <p className="font-medium mb-2">Connection Notes:</p>
-          <ul className="space-y-1 text-xs">
-            <li>• Tokens are stored securely and encrypted</li>
-            <li>• Each client manages their own social media connections</li>
-            <li>• Refresh tokens automatically when they expire</li>
-            <li>• Disconnect anytime to revoke access</li>
-          </ul>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,11 +16,7 @@ import {
   CheckCircle,
   Loader2,
   Shield,
-  Users,
-  BarChart3,
-  Camera,
-  MessageSquare,
-  Video,
+  ExternalLink,
 } from "lucide-react"
 
 const PLATFORM_CONFIG = {
@@ -28,67 +24,43 @@ const PLATFORM_CONFIG = {
     name: "Instagram",
     icon: Instagram,
     color: "bg-gradient-to-r from-purple-500 to-pink-500",
-    description: "Connect your Instagram account to schedule posts and view analytics",
-    permissions: [
-      { icon: Camera, label: "Publish posts and stories" },
-      { icon: BarChart3, label: "Read insights and analytics" },
-      { icon: Users, label: "Access follower data" },
-    ],
+    permissions: ["Basic Profile", "Publish Posts", "Read Insights"],
+    description: "Connect your Instagram account to post photos, stories, and reels automatically.",
   },
   facebook: {
     name: "Facebook",
     icon: Facebook,
     color: "bg-blue-600",
-    description: "Connect your Facebook pages to manage posts and engagement",
-    permissions: [
-      { icon: MessageSquare, label: "Publish posts to pages" },
-      { icon: Users, label: "Manage page followers" },
-      { icon: BarChart3, label: "Read page insights" },
-    ],
+    permissions: ["Manage Pages", "Publish Posts", "Read Insights", "Manage Ads"],
+    description: "Connect your Facebook page to manage posts and access detailed analytics.",
   },
   linkedin: {
     name: "LinkedIn",
     icon: Linkedin,
     color: "bg-blue-700",
-    description: "Connect your LinkedIn profile for professional content sharing",
-    permissions: [
-      { icon: MessageSquare, label: "Publish posts and articles" },
-      { icon: Users, label: "Read profile information" },
-      { icon: BarChart3, label: "View post analytics" },
-    ],
+    permissions: ["Basic Profile", "Share Content", "Company Pages"],
+    description: "Share professional content and manage your company's LinkedIn presence.",
   },
   twitter: {
     name: "Twitter/X",
     icon: Twitter,
     color: "bg-black",
-    description: "Connect your X (Twitter) account to schedule tweets",
-    permissions: [
-      { icon: MessageSquare, label: "Publish tweets and threads" },
-      { icon: Users, label: "Read profile information" },
-      { icon: BarChart3, label: "View tweet analytics" },
-    ],
+    permissions: ["Read Profile", "Post Tweets", "Read Timeline"],
+    description: "Post tweets and manage your Twitter presence automatically.",
   },
   youtube: {
     name: "YouTube",
     icon: Youtube,
     color: "bg-red-600",
-    description: "Connect your YouTube channel to upload and manage videos",
-    permissions: [
-      { icon: Video, label: "Upload videos" },
-      { icon: Users, label: "Manage channel settings" },
-      { icon: BarChart3, label: "View channel analytics" },
-    ],
+    permissions: ["Upload Videos", "Manage Channel", "Read Analytics"],
+    description: "Upload videos and manage your YouTube channel content.",
   },
   tiktok: {
     name: "TikTok",
     icon: Music,
     color: "bg-black",
-    description: "Connect your TikTok account to upload short-form videos",
-    permissions: [
-      { icon: Video, label: "Upload videos" },
-      { icon: Users, label: "Manage content" },
-      { icon: BarChart3, label: "View video analytics" },
-    ],
+    permissions: ["Upload Videos", "Manage Content", "Read Profile"],
+    description: "Upload short-form videos and manage your TikTok content.",
   },
 }
 
@@ -97,67 +69,75 @@ export default function OAuthDemoPage() {
   const platform = searchParams.get("platform") || "instagram"
   const clientId = searchParams.get("clientId")
 
-  const [step, setStep] = useState<"authorize" | "loading" | "success">("authorize")
-  const [countdown, setCountdown] = useState(3)
+  const [step, setStep] = useState<"authorize" | "loading" | "success" | "error">("authorize")
+  const [error, setError] = useState("")
 
-  const config = PLATFORM_CONFIG[platform as keyof typeof PLATFORM_CONFIG]
-  const Icon = config?.icon || Instagram
+  const platformConfig = PLATFORM_CONFIG[platform as keyof typeof PLATFORM_CONFIG]
+  const Icon = platformConfig?.icon || Instagram
 
   useEffect(() => {
-    if (step === "success") {
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer)
-            window.close()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      return () => clearInterval(timer)
+    // Auto-close if no platform or clientId
+    if (!platform || !clientId) {
+      setError("Missing required parameters")
+      setStep("error")
+      return
     }
-  }, [step])
+  }, [platform, clientId])
 
   const handleAuthorize = async () => {
     setStep("loading")
 
-    // Simulate OAuth process
-    setTimeout(async () => {
-      try {
-        // Complete the OAuth flow
-        const response = await fetch("/api/oauth/complete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId: Number.parseInt(clientId || "0"),
-            platform,
-            code: "demo_auth_code",
-            accessToken: `demo_access_token_${platform}_${Date.now()}`,
-            refreshToken: `demo_refresh_token_${platform}_${Date.now()}`,
-          }),
-        })
+    try {
+      // Simulate OAuth flow delay
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
-        if (response.ok) {
-          setStep("success")
-        } else {
-          throw new Error("Failed to complete OAuth")
-        }
-      } catch (error) {
-        console.error("OAuth completion failed:", error)
-        alert("Failed to complete authorization. Please try again.")
-        window.close()
+      // Complete OAuth flow
+      const response = await fetch("/api/oauth/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          platform,
+          code: "demo_auth_code_" + Date.now(),
+          accessToken: "demo_access_token_" + Date.now(),
+          refreshToken: "demo_refresh_token_" + Date.now(),
+        }),
+      })
+
+      if (response.ok) {
+        setStep("success")
+        // Auto-close window after success
+        setTimeout(() => {
+          window.close()
+        }, 2000)
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || "Failed to complete OAuth")
+        setStep("error")
       }
-    }, 2000)
+    } catch (error) {
+      console.error("OAuth error:", error)
+      setError("Failed to connect to " + platformConfig?.name)
+      setStep("error")
+    }
   }
 
-  if (!config) {
+  const handleCancel = () => {
+    window.close()
+  }
+
+  if (!platformConfig) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <p className="text-red-600">Invalid platform specified</p>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold text-red-600">Unsupported Platform</h2>
+              <p className="text-sm text-muted-foreground mt-2">The requested platform is not supported.</p>
+              <Button onClick={handleCancel} className="mt-4">
+                Close
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -168,79 +148,94 @@ export default function OAuthDemoPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className={`w-16 h-16 rounded-full ${config.color} flex items-center justify-center mx-auto mb-4`}>
-            <Icon className="h-8 w-8 text-white" />
+          <div className={`mx-auto p-3 rounded-full ${platformConfig.color} text-white w-fit`}>
+            <Icon className="h-8 w-8" />
           </div>
-          <CardTitle className="text-xl">
-            {step === "authorize" && `Connect to ${config.name}`}
-            {step === "loading" && "Authorizing..."}
-            {step === "success" && "Successfully Connected!"}
-          </CardTitle>
-          <CardDescription>
-            {step === "authorize" && config.description}
-            {step === "loading" && "Please wait while we connect your account"}
-            {step === "success" && `Your ${config.name} account has been connected successfully`}
-          </CardDescription>
+          <CardTitle className="text-xl">Connect to {platformConfig.name}</CardTitle>
+          <CardDescription>Authorize M3 to access your {platformConfig.name} account</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
           {step === "authorize" && (
             <>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2 text-sm">
-                  <Shield className="h-4 w-4 text-green-600" />
-                  <span className="font-medium">M3 Marketing Machine will be able to:</span>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-medium text-sm mb-2">M3 will be able to:</h3>
+                  <div className="space-y-2">
+                    {platformConfig.permissions.map((permission) => (
+                      <div key={permission} className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>{permission}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {config.permissions.map((permission, index) => {
-                  const PermissionIcon = permission.icon
-                  return (
-                    <div key={index} className="flex items-center space-x-3 text-sm text-gray-600 ml-6">
-                      <PermissionIcon className="h-4 w-4" />
-                      <span>{permission.label}</span>
+                <Separator />
+
+                <div className="text-xs text-muted-foreground">
+                  <p>{platformConfig.description}</p>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <Shield className="h-4 w-4 text-blue-600 mt-0.5" />
+                    <div className="text-xs text-blue-800">
+                      <p className="font-medium">Secure Connection</p>
+                      <p>Your credentials are encrypted and stored securely. You can revoke access anytime.</p>
                     </div>
-                  )
-                })}
+                  </div>
+                </div>
               </div>
 
-              <Separator />
-
-              <div className="space-y-3">
-                <Badge variant="secondary" className="w-full justify-center py-2">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Secure OAuth 2.0 Connection
-                </Badge>
-
-                <p className="text-xs text-gray-500 text-center">
-                  Your credentials are never stored. We only receive an access token to perform authorized actions.
-                </p>
+              <div className="flex gap-3">
+                <Button onClick={handleCancel} variant="outline" className="flex-1 bg-transparent">
+                  Cancel
+                </Button>
+                <Button onClick={handleAuthorize} className="flex-1">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Authorize
+                </Button>
               </div>
-
-              <Button onClick={handleAuthorize} className="w-full" size="lg">
-                Authorize M3 Marketing Machine
-              </Button>
-
-              <Button variant="outline" onClick={() => window.close()} className="w-full">
-                Cancel
-              </Button>
             </>
           )}
 
           {step === "loading" && (
-            <div className="text-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-              <p className="text-sm text-gray-600">Connecting to {config.name}...</p>
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+              <h3 className="font-medium mt-4">Connecting to {platformConfig.name}</h3>
+              <p className="text-sm text-muted-foreground mt-2">Please wait while we establish the connection...</p>
             </div>
           )}
 
           {step === "success" && (
-            <div className="text-center space-y-4">
-              <CheckCircle className="h-12 w-12 text-green-600 mx-auto" />
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600">
-                  You can now schedule posts and view analytics for your {config.name} account.
-                </p>
-                <p className="text-xs text-gray-500">This window will close automatically in {countdown} seconds...</p>
+            <div className="text-center py-8">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="font-medium mt-4 text-green-800">Successfully Connected!</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                Your {platformConfig.name} account has been connected to M3.
+              </p>
+              <Badge className="mt-3 bg-green-100 text-green-800">Connection Active</Badge>
+              <p className="text-xs text-muted-foreground mt-4">This window will close automatically...</p>
+            </div>
+          )}
+
+          {step === "error" && (
+            <div className="text-center py-8">
+              <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                <ExternalLink className="h-8 w-8 text-red-600" />
+              </div>
+              <h3 className="font-medium mt-4 text-red-800">Connection Failed</h3>
+              <p className="text-sm text-muted-foreground mt-2">{error}</p>
+              <div className="flex gap-3 mt-6">
+                <Button onClick={handleCancel} variant="outline" className="flex-1 bg-transparent">
+                  Close
+                </Button>
+                <Button onClick={() => setStep("authorize")} className="flex-1">
+                  Try Again
+                </Button>
               </div>
             </div>
           )}

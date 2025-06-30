@@ -1,26 +1,15 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
 
 export default function OAuthDemoLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <Skeleton className="w-16 h-16 rounded-full mx-auto mb-4" />
-          <Skeleton className="h-6 w-48 mx-auto mb-2" />
-          <Skeleton className="h-4 w-64 mx-auto" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center space-x-3">
-                <Skeleton className="h-4 w-4" />
-                <Skeleton className="h-4 flex-1" />
-              </div>
-            ))}
+        <CardContent className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-sm text-muted-foreground mt-2">Loading OAuth...</p>
           </div>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
         </CardContent>
       </Card>
     </div>

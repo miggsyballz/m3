@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,449 +10,427 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/hooks/use-toast"
 import { ClientProfileOAuthIntegration } from "./client-profile-oauth-integration"
-import { Settings, User, Bell, Shield, Palette, Globe, Key, Database, Zap } from "lucide-react"
+import {
+  Settings,
+  User,
+  Bell,
+  Shield,
+  Palette,
+  Database,
+  Key,
+  Mail,
+  Globe,
+  Smartphone,
+  Save,
+  RefreshCw,
+} from "lucide-react"
 
 interface SettingsViewProps {
-  selectedClient: any
+  selectedClient?: string | null
+}
+
+interface Client {
+  id: string
+  client_name: string
+  contact_email: string
 }
 
 export function SettingsView({ selectedClient }: SettingsViewProps) {
-  const [settings, setSettings] = useState({
-    notifications: {
-      email: true,
-      push: false,
-      sms: false,
-      campaignUpdates: true,
-      contentApproval: true,
-      systemAlerts: false,
-    },
-    privacy: {
-      dataCollection: true,
-      analytics: true,
-      thirdPartyIntegration: false,
-    },
-    appearance: {
-      theme: "system",
-      compactMode: false,
-      showPreview: true,
-    },
+  const [clients, setClients] = useState<Client[]>([])
+  const [selectedClientData, setSelectedClientData] = useState<Client | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [notifications, setNotifications] = useState({
+    email: true,
+    push: false,
+    sms: false,
+    marketing: true,
   })
 
-  const { toast } = useToast()
+  const [preferences, setPreferences] = useState({
+    theme: "system",
+    language: "en",
+    timezone: "UTC",
+    autoSave: true,
+  })
+
+  useEffect(() => {
+    loadClients()
+  }, [])
+
+  useEffect(() => {
+    if (selectedClient && clients.length > 0) {
+      const client = clients.find((c) => c.client_name === selectedClient)
+      setSelectedClientData(client || null)
+    } else {
+      setSelectedClientData(null)
+    }
+  }, [selectedClient, clients])
+
+  const loadClients = async () => {
+    try {
+      const response = await fetch("/api/clients")
+      const data = await response.json()
+      const clientList = Array.isArray(data) ? data : data.clients || []
+      setClients(clientList)
+    } catch (error) {
+      console.error("Error loading clients:", error)
+      setClients([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSaveSettings = () => {
-    toast({
-      title: "Settings Saved",
-      description: "Your preferences have been updated successfully.",
-    })
+    console.log("Saving settings...")
   }
 
-  const handleNotificationChange = (key: string, value: boolean) => {
-    setSettings((prev) => ({
-      ...prev,
-      notifications: {
-        ...prev.notifications,
-        [key]: value,
-      },
-    }))
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Settings
+          </CardTitle>
+          <CardDescription>Loading settings...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading client data...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
-  const handlePrivacyChange = (key: string, value: boolean) => {
-    setSettings((prev) => ({
-      ...prev,
-      privacy: {
-        ...prev.privacy,
-        [key]: value,
-      },
-    }))
-  }
-
-  const handleAppearanceChange = (key: string, value: any) => {
-    setSettings((prev) => ({
-      ...prev,
-      appearance: {
-        ...prev.appearance,
-        [key]: value,
-      },
-    }))
+  if (!selectedClient) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Settings
+          </CardTitle>
+          <CardDescription>Configure your M3 application settings</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <Settings className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Client Selected</h3>
+            <p className="text-muted-foreground">Please select a client to access their settings.</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-2">
-        <Settings className="h-5 w-5" />
+      <div>
         <h2 className="text-2xl font-bold">Settings</h2>
-        {selectedClient && <Badge variant="secondary">{selectedClient.name}</Badge>}
+        <p className="text-muted-foreground">Manage settings for {selectedClient}</p>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="general" className="flex items-center space-x-2">
-            <User className="h-4 w-4" />
-            <span className="hidden sm:inline">General</span>
-          </TabsTrigger>
-          <TabsTrigger value="social" className="flex items-center space-x-2">
+      <Tabs defaultValue="social" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="social" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
-            <span className="hidden sm:inline">Social</span>
+            Social
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center space-x-2">
+          <TabsTrigger value="profile" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Notifications</span>
+            Notifications
           </TabsTrigger>
-          <TabsTrigger value="privacy" className="flex items-center space-x-2">
+          <TabsTrigger value="security" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">Privacy</span>
+            Security
           </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex items-center space-x-2">
+          <TabsTrigger value="preferences" className="flex items-center gap-2">
             <Palette className="h-4 w-4" />
-            <span className="hidden sm:inline">Appearance</span>
-          </TabsTrigger>
-          <TabsTrigger value="advanced" className="flex items-center space-x-2">
-            <Zap className="h-4 w-4" />
-            <span className="hidden sm:inline">Advanced</span>
+            Preferences
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-6">
+        <TabsContent value="social" className="space-y-6">
+          <ClientProfileOAuthIntegration selectedClient={selectedClient} clientId={selectedClientData?.id || null} />
+        </TabsContent>
+
+        <TabsContent value="profile" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>Update your account profile and preferences</CardDescription>
+              <CardTitle>Client Profile</CardTitle>
+              <CardDescription>Update client information and contact details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" placeholder="Enter your first name" />
+                  <Label htmlFor="client-name">Client Name</Label>
+                  <Input id="client-name" defaultValue={selectedClientData?.client_name || selectedClient} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" placeholder="Enter your last name" />
+                  <Label htmlFor="contact-email">Contact Email</Label>
+                  <Input
+                    id="contact-email"
+                    type="email"
+                    defaultValue={selectedClientData?.contact_email || ""}
+                    placeholder="client@example.com"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" type="tel" placeholder="+1 (555) 123-4567" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="website">Website</Label>
+                  <Input id="website" type="url" placeholder="https://example.com" />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" placeholder="Enter your email" />
+                <Label htmlFor="bio">Bio / Description</Label>
+                <Textarea id="bio" placeholder="Brief description of the client..." rows={3} />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="company">Company</Label>
-                <Input id="company" placeholder="Enter your company name" />
-              </div>
+              <Separator />
 
-              <div className="space-y-2">
-                <Label htmlFor="bio">Bio</Label>
-                <Textarea id="bio" placeholder="Tell us about yourself" />
+              <div className="flex justify-end">
+                <Button onClick={handleSaveSettings}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Profile
+                </Button>
               </div>
-
-              <Button onClick={handleSaveSettings}>Save Changes</Button>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="social" className="space-y-6">
-          {selectedClient ? (
-            <ClientProfileOAuthIntegration clientId={selectedClient.id} />
-          ) : (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Globe className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium mb-2">No Client Selected</h3>
-                <p className="text-gray-600">Please select a client to manage their social media integrations.</p>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>Choose how you want to be notified about updates and activities</CardDescription>
+              <CardDescription>Choose how you want to be notified about client activities</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <h4 className="font-medium">Delivery Methods</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="email-notifications">Email Notifications</Label>
-                      <p className="text-sm text-muted-foreground">Receive notifications via email</p>
-                    </div>
-                    <Switch
-                      id="email-notifications"
-                      checked={settings.notifications.email}
-                      onCheckedChange={(value) => handleNotificationChange("email", value)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="push-notifications">Push Notifications</Label>
-                      <p className="text-sm text-muted-foreground">Receive browser push notifications</p>
-                    </div>
-                    <Switch
-                      id="push-notifications"
-                      checked={settings.notifications.push}
-                      onCheckedChange={(value) => handleNotificationChange("push", value)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="sms-notifications">SMS Notifications</Label>
-                      <p className="text-sm text-muted-foreground">Receive text message alerts</p>
-                    </div>
-                    <Switch
-                      id="sms-notifications"
-                      checked={settings.notifications.sms}
-                      onCheckedChange={(value) => handleNotificationChange("sms", value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h4 className="font-medium">Notification Types</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="campaign-updates">Campaign Updates</Label>
-                      <p className="text-sm text-muted-foreground">Updates about campaign performance</p>
-                    </div>
-                    <Switch
-                      id="campaign-updates"
-                      checked={settings.notifications.campaignUpdates}
-                      onCheckedChange={(value) => handleNotificationChange("campaignUpdates", value)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="content-approval">Content Approval</Label>
-                      <p className="text-sm text-muted-foreground">When content needs approval</p>
-                    </div>
-                    <Switch
-                      id="content-approval"
-                      checked={settings.notifications.contentApproval}
-                      onCheckedChange={(value) => handleNotificationChange("contentApproval", value)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="system-alerts">System Alerts</Label>
-                      <p className="text-sm text-muted-foreground">Important system notifications</p>
-                    </div>
-                    <Switch
-                      id="system-alerts"
-                      checked={settings.notifications.systemAlerts}
-                      onCheckedChange={(value) => handleNotificationChange("systemAlerts", value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Button onClick={handleSaveSettings}>Save Preferences</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="privacy" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Privacy & Data</CardTitle>
-              <CardDescription>Control how your data is collected and used</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="data-collection">Data Collection</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Allow collection of usage data to improve the service
-                    </p>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      <Label>Email Notifications</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Receive email updates about campaigns and posts</p>
                   </div>
                   <Switch
-                    id="data-collection"
-                    checked={settings.privacy.dataCollection}
-                    onCheckedChange={(value) => handlePrivacyChange("dataCollection", value)}
+                    checked={notifications.email}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, email: checked })}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="analytics">Analytics</Label>
-                    <p className="text-sm text-muted-foreground">Enable analytics tracking for performance insights</p>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4" />
+                      <Label>Push Notifications</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Get push notifications on your device</p>
                   </div>
                   <Switch
-                    id="analytics"
-                    checked={settings.privacy.analytics}
-                    onCheckedChange={(value) => handlePrivacyChange("analytics", value)}
+                    checked={notifications.push}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, push: checked })}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="third-party">Third-party Integration</Label>
-                    <p className="text-sm text-muted-foreground">Allow third-party services to access your data</p>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-4 w-4" />
+                      <Label>SMS Notifications</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Receive text messages for urgent updates</p>
                   </div>
                   <Switch
-                    id="third-party"
-                    checked={settings.privacy.thirdPartyIntegration}
-                    onCheckedChange={(value) => handlePrivacyChange("thirdPartyIntegration", value)}
+                    checked={notifications.sms}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, sms: checked })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      <Label>Marketing Emails</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Receive updates about new features and tips</p>
+                  </div>
+                  <Switch
+                    checked={notifications.marketing}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, marketing: checked })}
                   />
                 </div>
               </div>
 
               <Separator />
 
-              <div className="space-y-4">
-                <h4 className="font-medium">Data Management</h4>
-                <div className="space-y-2">
-                  <Button variant="outline" className="w-full justify-start bg-transparent">
-                    <Database className="h-4 w-4 mr-2" />
-                    Export My Data
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-red-600 hover:text-red-700 bg-transparent"
-                  >
-                    <Shield className="h-4 w-4 mr-2" />
-                    Delete My Account
-                  </Button>
-                </div>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveSettings}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Notifications
+                </Button>
               </div>
-
-              <Button onClick={handleSaveSettings}>Save Privacy Settings</Button>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="appearance" className="space-y-6">
+        <TabsContent value="security" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>Customize the look and feel of your dashboard</CardDescription>
+              <CardTitle>Security Settings</CardTitle>
+              <CardDescription>Manage API keys and security preferences</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="theme">Theme</Label>
-                  <p className="text-sm text-muted-foreground mb-2">Choose your preferred color scheme</p>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant={settings.appearance.theme === "light" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleAppearanceChange("theme", "light")}
-                    >
-                      Light
-                    </Button>
-                    <Button
-                      variant={settings.appearance.theme === "dark" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleAppearanceChange("theme", "dark")}
-                    >
-                      Dark
-                    </Button>
-                    <Button
-                      variant={settings.appearance.theme === "system" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleAppearanceChange("theme", "system")}
-                    >
-                      System
-                    </Button>
+                  <Label className="text-base font-medium">API Keys</Label>
+                  <p className="text-sm text-muted-foreground mb-4">Manage API keys for external integrations</p>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Key className="h-4 w-4" />
+                        <div>
+                          <p className="font-medium">OpenAI API Key</p>
+                          <p className="text-sm text-muted-foreground">For AI content generation</p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary">Configured</Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Database className="h-4 w-4" />
+                        <div>
+                          <p className="font-medium">Database Connection</p>
+                          <p className="text-sm text-muted-foreground">Neon PostgreSQL database</p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary">Active</Badge>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="compact-mode">Compact Mode</Label>
-                    <p className="text-sm text-muted-foreground">Use a more compact layout</p>
-                  </div>
-                  <Switch
-                    id="compact-mode"
-                    checked={settings.appearance.compactMode}
-                    onCheckedChange={(value) => handleAppearanceChange("compactMode", value)}
-                  />
-                </div>
+                <Separator />
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="show-preview">Show Preview</Label>
-                    <p className="text-sm text-muted-foreground">Show content previews in lists</p>
-                  </div>
-                  <Switch
-                    id="show-preview"
-                    checked={settings.appearance.showPreview}
-                    onCheckedChange={(value) => handleAppearanceChange("showPreview", value)}
-                  />
-                </div>
-              </div>
-
-              <Button onClick={handleSaveSettings}>Save Appearance</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="advanced" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Advanced Settings</CardTitle>
-              <CardDescription>Advanced configuration options for power users</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="api-key">API Key</Label>
-                  <p className="text-sm text-muted-foreground mb-2">Your personal API key for integrations</p>
-                  <div className="flex space-x-2">
-                    <Input id="api-key" type="password" value="sk-1234567890abcdef" readOnly className="font-mono" />
+                  <Label className="text-base font-medium">Session Management</Label>
+                  <p className="text-sm text-muted-foreground mb-4">Control your active sessions</p>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Current Session</p>
+                      <p className="text-sm text-muted-foreground">Started 2 hours ago</p>
+                    </div>
                     <Button variant="outline" size="sm">
-                      <Key className="h-4 w-4 mr-2" />
-                      Regenerate
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh
                     </Button>
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="webhook-url">Webhook URL</Label>
-                  <p className="text-sm text-muted-foreground mb-2">Receive real-time updates via webhooks</p>
-                  <Input id="webhook-url" placeholder="https://your-app.com/webhooks/m3" />
-                </div>
-
-                <div>
-                  <Label htmlFor="rate-limit">Rate Limit</Label>
-                  <p className="text-sm text-muted-foreground mb-2">API requests per minute</p>
-                  <Input id="rate-limit" type="number" defaultValue="100" min="1" max="1000" />
                 </div>
               </div>
 
               <Separator />
 
+              <div className="flex justify-end">
+                <Button onClick={handleSaveSettings}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Security
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="preferences" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Application Preferences</CardTitle>
+              <CardDescription>Customize your M3 experience</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
               <div className="space-y-4">
-                <h4 className="font-medium">Danger Zone</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="theme">Theme</Label>
+                    <select
+                      id="theme"
+                      className="w-full p-2 border rounded-md"
+                      value={preferences.theme}
+                      onChange={(e) => setPreferences({ ...preferences, theme: e.target.value })}
+                    >
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                      <option value="system">System</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="language">Language</Label>
+                    <select
+                      id="language"
+                      className="w-full p-2 border rounded-md"
+                      value={preferences.language}
+                      onChange={(e) => setPreferences({ ...preferences, language: e.target.value })}
+                    >
+                      <option value="en">English</option>
+                      <option value="es">Spanish</option>
+                      <option value="fr">French</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Button variant="outline" className="w-full justify-start bg-transparent">
-                    <Database className="h-4 w-4 mr-2" />
-                    Reset All Settings
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-red-600 hover:text-red-700 bg-transparent"
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <select
+                    id="timezone"
+                    className="w-full p-2 border rounded-md"
+                    value={preferences.timezone}
+                    onChange={(e) => setPreferences({ ...preferences, timezone: e.target.value })}
                   >
-                    <Shield className="h-4 w-4 mr-2" />
-                    Clear All Data
-                  </Button>
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">Eastern Time</option>
+                    <option value="America/Chicago">Central Time</option>
+                    <option value="America/Denver">Mountain Time</option>
+                    <option value="America/Los_Angeles">Pacific Time</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Auto-save</Label>
+                    <p className="text-sm text-muted-foreground">Automatically save changes as you work</p>
+                  </div>
+                  <Switch
+                    checked={preferences.autoSave}
+                    onCheckedChange={(checked) => setPreferences({ ...preferences, autoSave: checked })}
+                  />
                 </div>
               </div>
 
-              <Button onClick={handleSaveSettings}>Save Advanced Settings</Button>
+              <Separator />
+
+              <div className="flex justify-end">
+                <Button onClick={handleSaveSettings}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Preferences
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

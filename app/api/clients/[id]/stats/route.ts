@@ -1,49 +1,56 @@
-export const runtime = "nodejs"
-import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/database"
+"use server"
 
 /**
- * GET /api/clients/[id]/stats
- * Get real statistics for a specific client
+ * GET /api/clients/:id/stats
+ *
+ * Returns aggregate statistics for a single client.
+ * Relies on the methods that exist in lib/db.ts:
+ *   • getClientById
+ *   • getCampaignsByClientId
+ *   • getContentByClientId
+ *   • getScheduledPostsByClientId
  */
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+
+import { type NextRequest, NextResponse } from "next/server"
+import { db } from "@/lib/db"
+
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const clientId = params.id
 
-    // Get client info
+    /* ---------- 1.  Client ---------- */
     const client = await db.getClientById(clientId)
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 })
     }
 
-    // Get real campaign stats
+    /* ---------- 2.  Campaigns ---------- */
     const campaigns = await db.getCampaignsByClientId(clientId)
-    const activeCampaigns = campaigns.filter((c) => c.status === "active")
 
-    // Get real scheduled posts
-    const scheduledPosts = await db.getScheduledPostsByClientId(clientId)
-    const upcomingPosts = scheduledPosts.filter(
-      (p) => p.status === "scheduled" && new Date(p.scheduled_time) > new Date(),
-    )
-
-    // Get content items
+    /* ---------- 3.  Content ---------- */
     const contentItems = await db.getContentByClientId(clientId)
 
+    /* ---------- 4.  Scheduled Posts ---------- */
+    const scheduled = await db.getScheduledPostsByClientId(clientId)
+    const upcoming = scheduled.filter((p) => p.status === "scheduled" && new Date(p.scheduled_time) > new Date())
+
+    /* ---------- 5.  Build the stats object ---------- */
     const stats = {
       totalCampaigns: campaigns.length,
-      activeCampaigns: activeCampaigns.length,
-      scheduledPosts: upcomingPosts.length,
+      activeCampaigns: campaigns.filter((c) => c.status === "active").length,
+      scheduledPosts: upcoming.length,
       totalPosts: contentItems.length,
-      campaigns: campaigns.slice(0, 5), // Recent campaigns
-      upcomingPosts: upcomingPosts.slice(0, 5), // Next 5 posts
+      campaigns: campaigns.slice(0, 5), // latest 5
+      upcomingPosts: upcoming.slice(0, 5), // next 5
     }
 
     return NextResponse.json(stats)
-  } catch (error) {
-    console.error("[GET /api/clients/[id]/stats]", error)
+  } catch (err) {
+    /* ----------- Robust error logging ---------- */
+    console.error("[api/clients/[id]/stats] Unhandled error:", err)
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to fetch client stats",
+        error: err instanceof Error ? err.message : "Internal server error",
       },
       { status: 500 },
     )

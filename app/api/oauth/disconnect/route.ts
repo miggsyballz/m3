@@ -1,10 +1,10 @@
 export const runtime = "nodejs"
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/database"
+import { db } from "@/lib/db"
 
 /**
  * POST /api/oauth/disconnect
- * Disconnect a social media platform for a client
+ * Disconnect a social media platform
  */
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Delete the social token from database
-    await db.deleteSocialToken(clientId, platform)
+    await db.deleteSocialToken(Number.parseInt(clientId), platform)
 
     return NextResponse.json({
       success: true,
