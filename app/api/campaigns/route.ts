@@ -1,26 +1,23 @@
-export const runtime = "nodejs"
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const clientId = searchParams.get("clientId")
+    const clientId = searchParams.get("clientId") ?? undefined
 
-    let campaigns
-    if (clientId) {
-      campaigns = await db.getCampaignsByClientId(clientId)
-    } else {
-      campaigns = await db.getCampaigns()
-    }
+    console.log("GET /api/campaigns - clientId:", clientId)
 
+    const campaigns = clientId ? await db.getCampaignsByClientId(clientId) : await db.getCampaigns()
+
+    console.log("Campaigns fetched:", campaigns.length)
     return NextResponse.json(campaigns)
   } catch (error) {
-    console.error("[GET /api/campaigns]", error)
+    console.error("[GET /api/campaigns] Error:", error)
     return NextResponse.json(
       {
-        campaigns: [],
         error: error instanceof Error ? error.message : "Failed to fetch campaigns",
+        campaigns: [],
       },
       { status: 500 },
     )
@@ -29,26 +26,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
+    const body = await request.json()
+    console.log("POST /api/campaigns - body:", body)
 
-    if (!data.client_id || !data.name || !data.type) {
+    if (!body.client_id || !body.name || !body.type) {
       return NextResponse.json({ error: "Missing required fields: client_id, name, type" }, { status: 400 })
     }
 
-    const newCampaign = await db.createCampaign({
-      client_id: data.client_id,
-      name: data.name,
-      type: data.type,
-      platforms: data.platforms || [],
-      hashtags: data.hashtags || [],
-      start_date: data.start_date || null,
-      end_date: data.end_date || null,
-      status: data.status || "draft",
-    })
+    const newCampaign = await db.createCampaign(body)
+    console.log("Campaign created:", newCampaign)
 
     return NextResponse.json(newCampaign, { status: 201 })
   } catch (error) {
-    console.error("[POST /api/campaigns]", error)
+    console.error("[POST /api/campaigns] Error:", error)
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Failed to create campaign",

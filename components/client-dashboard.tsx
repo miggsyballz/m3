@@ -63,12 +63,24 @@ export function ClientDashboard({ selectedClient }: ClientDashboardProps) {
       if (!selectedClient) {
         // Load aggregate stats for all clients
         const response = await fetch("/api/campaigns")
-        const campaignsData = await response.json()
-        const campaigns = Array.isArray(campaignsData) ? campaignsData : campaignsData.campaigns || []
+        let campaigns: any[] = []
+
+        if (response.ok) {
+          try {
+            campaigns = await response.json()
+          } catch {
+            console.error("Expected JSON from /api/campaigns but got something else")
+            throw new Error("Invalid data from server")
+          }
+        } else {
+          // Even error responses from /api/campaigns return JSON with { error }
+          const errPayload = await response.json().catch(() => ({}))
+          throw new Error(errPayload.error || "Server error loading campaigns")
+        }
 
         setClientStats({
           totalCampaigns: campaigns.length,
-          activeCampaigns: campaigns.filter((c: any) => c.status === "active").length,
+          activeCampaigns: campaigns.filter((c) => c.status === "active").length,
           scheduledPosts: 0, // TODO: Implement scheduled posts API
           totalPosts: 0, // TODO: Implement content API
         })

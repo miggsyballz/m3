@@ -1,28 +1,6 @@
-import { neon } from "@neondatabase/serverless"
+// Mock database implementation since Neon was removed
+// This provides fallback data until a new database is connected
 
-// Only run database code on the server side
-if (typeof window !== "undefined") {
-  throw new Error("Database operations cannot run on the client side")
-}
-
-// Database connection - server-side only
-const connectionString =
-  process.env.DATABASE_URL ||
-  process.env.POSTGRES_URL ||
-  process.env.POSTGRES_PRISMA_URL ||
-  process.env.NEON_DATABASE_URL ||
-  ""
-
-if (!connectionString) {
-  throw new Error(
-    "❌ DATABASE_URL (or POSTGRES_URL / NEON_DATABASE_URL) is not set. " +
-      "Add it in your Vercel Environment Variables or via the Neon integration.",
-  )
-}
-
-const sql = neon(connectionString)
-
-// Database types
 export interface Client {
   id: string
   client_name: string
@@ -63,7 +41,7 @@ export interface ContentItem {
 
 export interface ScheduledPost {
   id: string
-  campaign_id: string
+  campaign_id: string | null
   client_id: string
   platform: string
   content: string
@@ -80,17 +58,54 @@ export type CampaignInsert = Omit<Campaign, "id" | "created_at" | "updated_at">
 export type ContentItemInsert = Omit<ContentItem, "id" | "created_at" | "updated_at">
 export type ScheduledPostInsert = Omit<ScheduledPost, "id" | "created_at" | "updated_at">
 
-class NeonDatabase {
+// In-memory storage (temporary until new database is connected)
+let mockClients: Client[] = [
+  {
+    id: "1",
+    client_name: "MaxxBeats",
+    ig_handle: "@maxxbeats",
+    fb_page: "facebook.com/maxxbeats",
+    linkedin_url: "linkedin.com/company/maxxbeats",
+    contact_email: "mig@maxxbeats.com",
+    notes: "Music production and beat sales",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+]
+
+const mockCampaigns: Campaign[] = [
+  {
+    id: "1",
+    client_id: "1",
+    name: "Beat Drop Campaign",
+    type: "product_launch",
+    platforms: ["instagram", "facebook"],
+    hashtags: ["#beats", "#music", "#producer"],
+    start_date: new Date().toISOString(),
+    end_date: null,
+    status: "active",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+]
+
+const mockContent: ContentItem[] = []
+const mockScheduledPosts: ScheduledPost[] = []
+
+class MockDatabase {
   // Client operations
   async createClient(clientData: ClientInsert): Promise<Client> {
     try {
-      const result = await sql`
-        INSERT INTO clients (client_name, ig_handle, fb_page, linkedin_url, contact_email, notes)
-        VALUES (${clientData.client_name}, ${clientData.ig_handle}, ${clientData.fb_page}, 
-                ${clientData.linkedin_url}, ${clientData.contact_email}, ${clientData.notes})
-        RETURNING *
-      `
-      return result[0] as Client
+      console.log("Creating client with data:", clientData)
+      const newClient: Client = {
+        id: Date.now().toString(),
+        ...clientData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      mockClients.push(newClient)
+      console.log("Client created successfully:", newClient)
+      return newClient
     } catch (error) {
       console.error("Error creating client:", error)
       throw new Error(`Failed to create client: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -99,11 +114,7 @@ class NeonDatabase {
 
   async getClients(): Promise<Client[]> {
     try {
-      const result = await sql`
-        SELECT * FROM clients 
-        ORDER BY created_at DESC
-      `
-      return result as Client[]
+      return mockClients
     } catch (error) {
       console.error("Error fetching clients:", error)
       throw new Error(`Failed to fetch clients: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -112,11 +123,7 @@ class NeonDatabase {
 
   async getClientById(id: string): Promise<Client | null> {
     try {
-      const result = await sql`
-        SELECT * FROM clients 
-        WHERE id = ${id}
-      `
-      return result.length > 0 ? (result[0] as Client) : null
+      return mockClients.find((client) => client.id === id) || null
     } catch (error) {
       console.error("Error fetching client:", error)
       throw new Error(`Failed to fetch client: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -125,13 +132,15 @@ class NeonDatabase {
 
   async updateClient(id: string, updates: Partial<Client>): Promise<Client | null> {
     try {
-      const result = await sql`
-        UPDATE clients 
-        SET ${sql(updates)}, updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *
-      `
-      return result.length > 0 ? (result[0] as Client) : null
+      const clientIndex = mockClients.findIndex((client) => client.id === id)
+      if (clientIndex === -1) return null
+
+      mockClients[clientIndex] = {
+        ...mockClients[clientIndex],
+        ...updates,
+        updated_at: new Date().toISOString(),
+      }
+      return mockClients[clientIndex]
     } catch (error) {
       console.error("Error updating client:", error)
       throw new Error(`Failed to update client: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -140,11 +149,9 @@ class NeonDatabase {
 
   async deleteClient(id: string): Promise<boolean> {
     try {
-      const result = await sql`
-        DELETE FROM clients 
-        WHERE id = ${id}
-      `
-      return result.count > 0
+      const initialLength = mockClients.length
+      mockClients = mockClients.filter((client) => client.id !== id)
+      return mockClients.length < initialLength
     } catch (error) {
       console.error("Error deleting client:", error)
       throw new Error(`Failed to delete client: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -154,14 +161,17 @@ class NeonDatabase {
   // Campaign operations
   async createCampaign(campaignData: CampaignInsert): Promise<Campaign> {
     try {
-      const result = await sql`
-        INSERT INTO campaigns (client_id, name, type, platforms, hashtags, start_date, end_date, status)
-        VALUES (${campaignData.client_id}, ${campaignData.name}, ${campaignData.type}, 
-                ${campaignData.platforms}, ${campaignData.hashtags}, ${campaignData.start_date}, 
-                ${campaignData.end_date}, ${campaignData.status || "draft"})
-        RETURNING *
-      `
-      return result[0] as Campaign
+      console.log("Creating campaign with data:", campaignData)
+      const newCampaign: Campaign = {
+        id: Date.now().toString(),
+        ...campaignData,
+        status: campaignData.status || "draft",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      mockCampaigns.push(newCampaign)
+      console.log("Campaign created successfully:", newCampaign)
+      return newCampaign
     } catch (error) {
       console.error("Error creating campaign:", error)
       throw new Error(`Failed to create campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -170,11 +180,7 @@ class NeonDatabase {
 
   async getCampaigns(): Promise<Campaign[]> {
     try {
-      const result = await sql`
-        SELECT * FROM campaigns 
-        ORDER BY created_at DESC
-      `
-      return result as Campaign[]
+      return mockCampaigns
     } catch (error) {
       console.error("Error fetching campaigns:", error)
       throw new Error(`Failed to fetch campaigns: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -183,12 +189,7 @@ class NeonDatabase {
 
   async getCampaignsByClientId(clientId: string): Promise<Campaign[]> {
     try {
-      const result = await sql`
-        SELECT * FROM campaigns 
-        WHERE client_id = ${clientId}
-        ORDER BY created_at DESC
-      `
-      return result as Campaign[]
+      return mockCampaigns.filter((campaign) => campaign.client_id === clientId)
     } catch (error) {
       console.error("Error fetching campaigns by client:", error)
       throw new Error(`Failed to fetch campaigns: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -197,13 +198,15 @@ class NeonDatabase {
 
   async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | null> {
     try {
-      const result = await sql`
-        UPDATE campaigns 
-        SET ${sql(updates)}, updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *
-      `
-      return result.length > 0 ? (result[0] as Campaign) : null
+      const campaignIndex = mockCampaigns.findIndex((campaign) => campaign.id === id)
+      if (campaignIndex === -1) return null
+
+      mockCampaigns[campaignIndex] = {
+        ...mockCampaigns[campaignIndex],
+        ...updates,
+        updated_at: new Date().toISOString(),
+      }
+      return mockCampaigns[campaignIndex]
     } catch (error) {
       console.error("Error updating campaign:", error)
       throw new Error(`Failed to update campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -213,13 +216,16 @@ class NeonDatabase {
   // Content operations
   async createContentItem(contentData: ContentItemInsert): Promise<ContentItem> {
     try {
-      const result = await sql`
-        INSERT INTO content_items (client_id, campaign_id, name, type, file_path, file_size)
-        VALUES (${contentData.client_id}, ${contentData.campaign_id}, ${contentData.name}, 
-                ${contentData.type}, ${contentData.file_path}, ${contentData.file_size})
-        RETURNING *
-      `
-      return result[0] as ContentItem
+      console.log("Creating content item with data:", contentData)
+      const newContent: ContentItem = {
+        id: Date.now().toString(),
+        ...contentData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      mockContent.push(newContent)
+      console.log("Content item created successfully:", newContent)
+      return newContent
     } catch (error) {
       console.error("Error creating content item:", error)
       throw new Error(`Failed to create content item: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -228,11 +234,7 @@ class NeonDatabase {
 
   async getContentItems(): Promise<ContentItem[]> {
     try {
-      const result = await sql`
-        SELECT * FROM content_items 
-        ORDER BY created_at DESC
-      `
-      return result as ContentItem[]
+      return mockContent
     } catch (error) {
       console.error("Error fetching content items:", error)
       throw new Error(`Failed to fetch content items: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -241,12 +243,7 @@ class NeonDatabase {
 
   async getContentByClientId(clientId: string): Promise<ContentItem[]> {
     try {
-      const result = await sql`
-        SELECT * FROM content_items 
-        WHERE client_id = ${clientId}
-        ORDER BY created_at DESC
-      `
-      return result as ContentItem[]
+      return mockContent.filter((content) => content.client_id === clientId)
     } catch (error) {
       console.error("Error fetching content by client:", error)
       throw new Error(`Failed to fetch content: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -256,14 +253,17 @@ class NeonDatabase {
   // Scheduled posts operations
   async createScheduledPost(postData: ScheduledPostInsert): Promise<ScheduledPost> {
     try {
-      const result = await sql`
-        INSERT INTO scheduled_posts (campaign_id, client_id, platform, content, media_urls, hashtags, scheduled_time, status)
-        VALUES (${postData.campaign_id}, ${postData.client_id}, ${postData.platform}, 
-                ${postData.content}, ${postData.media_urls}, ${postData.hashtags}, 
-                ${postData.scheduled_time}, ${postData.status || "draft"})
-        RETURNING *
-      `
-      return result[0] as ScheduledPost
+      console.log("Creating scheduled post with data:", postData)
+      const newPost: ScheduledPost = {
+        id: Date.now().toString(),
+        ...postData,
+        status: postData.status || "draft",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      mockScheduledPosts.push(newPost)
+      console.log("Scheduled post created successfully:", newPost)
+      return newPost
     } catch (error) {
       console.error("Error creating scheduled post:", error)
       throw new Error(`Failed to create scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -272,11 +272,7 @@ class NeonDatabase {
 
   async getScheduledPosts(): Promise<ScheduledPost[]> {
     try {
-      const result = await sql`
-        SELECT * FROM scheduled_posts 
-        ORDER BY scheduled_time ASC
-      `
-      return result as ScheduledPost[]
+      return mockScheduledPosts.filter((post) => post.status !== "deleted")
     } catch (error) {
       console.error("Error fetching scheduled posts:", error)
       throw new Error(`Failed to fetch scheduled posts: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -285,12 +281,7 @@ class NeonDatabase {
 
   async getScheduledPostsByClientId(clientId: string): Promise<ScheduledPost[]> {
     try {
-      const result = await sql`
-        SELECT * FROM scheduled_posts 
-        WHERE client_id = ${clientId}
-        ORDER BY scheduled_time ASC
-      `
-      return result as ScheduledPost[]
+      return mockScheduledPosts.filter((post) => post.client_id === clientId && post.status !== "deleted")
     } catch (error) {
       console.error("Error fetching scheduled posts by client:", error)
       throw new Error(`Failed to fetch scheduled posts: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -299,27 +290,47 @@ class NeonDatabase {
 
   async updateScheduledPost(id: string, updates: Partial<ScheduledPost>): Promise<ScheduledPost | null> {
     try {
-      const result = await sql`
-        UPDATE scheduled_posts 
-        SET ${sql(updates)}, updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *
-      `
-      return result.length > 0 ? (result[0] as ScheduledPost) : null
+      console.log("Updating scheduled post:", id, updates)
+      const postIndex = mockScheduledPosts.findIndex((post) => post.id === id)
+      if (postIndex === -1) return null
+
+      mockScheduledPosts[postIndex] = {
+        ...mockScheduledPosts[postIndex],
+        ...updates,
+        updated_at: new Date().toISOString(),
+      }
+      console.log("Scheduled post updated successfully:", mockScheduledPosts[postIndex])
+      return mockScheduledPosts[postIndex]
     } catch (error) {
       console.error("Error updating scheduled post:", error)
       throw new Error(`Failed to update scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
   }
 
+  async deleteScheduledPost(id: string): Promise<boolean> {
+    try {
+      console.log("Deleting scheduled post:", id)
+      const postIndex = mockScheduledPosts.findIndex((post) => post.id === id)
+      if (postIndex === -1) return false
+
+      mockScheduledPosts[postIndex].status = "deleted"
+      mockScheduledPosts[postIndex].updated_at = new Date().toISOString()
+      console.log("Scheduled post deleted successfully")
+      return true
+    } catch (error) {
+      console.error("Error deleting scheduled post:", error)
+      throw new Error(`Failed to delete scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
   // Analytics and dashboard queries
   async getDashboardStats(clientId?: string) {
     try {
-      const [clients, campaigns, scheduledPosts] = await Promise.all([
-        clientId ? [await this.getClientById(clientId)] : this.getClients(),
-        clientId ? this.getCampaignsByClientId(clientId) : this.getCampaigns(),
-        clientId ? this.getScheduledPostsByClientId(clientId) : this.getScheduledPosts(),
-      ])
+      const clients = clientId ? [await this.getClientById(clientId)].filter(Boolean) : await this.getClients()
+      const campaigns = clientId ? await this.getCampaignsByClientId(clientId) : await this.getCampaigns()
+      const scheduledPosts = clientId
+        ? await this.getScheduledPostsByClientId(clientId)
+        : await this.getScheduledPosts()
 
       const activeCampaigns = campaigns.filter((c) => c.status === "active")
       const upcomingPosts = scheduledPosts.filter(
@@ -343,8 +354,7 @@ class NeonDatabase {
   // Test database connection
   async testConnection(): Promise<boolean> {
     try {
-      await sql`SELECT 1 as test`
-      return true
+      return true // Mock database is always "connected"
     } catch (error) {
       console.error("Database connection test failed:", error)
       return false
@@ -352,4 +362,4 @@ class NeonDatabase {
   }
 }
 
-export const db = new NeonDatabase()
+export const db = new MockDatabase()

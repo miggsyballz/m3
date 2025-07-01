@@ -1,68 +1,51 @@
-export const runtime = "nodejs" // ❗ run in the Node.js runtime, not Edge
-export const dynamic = "force-dynamic" // optional – disable caching while developing
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/database"
+import { db } from "@/lib/db"
 
-/**
- * GET /api/clients
- * Returns the full client list.
- */
 export async function GET() {
   try {
+    console.log("GET /api/clients")
     const clients = await db.getClients()
+    console.log("Clients fetched:", clients.length)
     return NextResponse.json(clients)
   } catch (error) {
-    console.error("[GET /api/clients] Database error:", error)
-
-    // Check if it's a configuration error
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
-
-    if (errorMessage.includes("DATABASE_URL")) {
-      return NextResponse.json(
-        {
-          clients: [],
-          error: "Database not configured",
-          message: "Please add your DATABASE_URL environment variable in Vercel settings.",
-          needsSetup: true,
-        },
-        { status: 200 },
-      ) // Return 200 to avoid frontend errors
-    }
-
-    // Return empty array with error info for other database errors
+    console.error("[GET /api/clients] Error:", error)
     return NextResponse.json(
       {
+        error: error instanceof Error ? error.message : "Failed to fetch clients",
         clients: [],
-        error: errorMessage,
-        message: "Database connection failed. Please check your configuration.",
       },
-      { status: 200 },
-    ) // Return 200 to avoid frontend errors
+      { status: 500 },
+    )
   }
 }
 
-/**
- * POST /api/clients
- * Creates a new client with the JSON body supplied.
- */
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
-    const newClient = await db.createClient(data)
-    return NextResponse.json(newClient, { status: 201 })
-  } catch (error) {
-    console.error("[POST /api/clients]", error)
-    const errorMessage = error instanceof Error ? error.message : "Internal Server Error"
+    const body = await request.json()
+    console.log("POST /api/clients - body:", body)
 
-    if (errorMessage.includes("DATABASE_URL")) {
-      return NextResponse.json(
-        {
-          error: "Database not configured. Please add DATABASE_URL environment variable.",
-        },
-        { status: 400 },
-      )
+    if (!body.client_name || !body.contact_email) {
+      return NextResponse.json({ error: "Missing required fields: client_name, contact_email" }, { status: 400 })
     }
 
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    const newClient = await db.createClient({
+      client_name: body.client_name,
+      ig_handle: body.ig_handle || null,
+      fb_page: body.fb_page || null,
+      linkedin_url: body.linkedin_url || null,
+      contact_email: body.contact_email,
+      notes: body.notes || null,
+    })
+
+    console.log("Client created:", newClient)
+    return NextResponse.json(newClient, { status: 201 })
+  } catch (error) {
+    console.error("[POST /api/clients] Error:", error)
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to create client",
+      },
+      { status: 500 },
+    )
   }
 }

@@ -1,26 +1,48 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/database"
+import { db } from "@/lib/db"
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const postId = params.id
+    console.log("GET /api/scheduled-posts/[id] - postId:", postId)
+
+    const posts = await db.getScheduledPosts()
+    const post = posts.find((p) => p.id === postId)
+
+    if (!post) {
+      return NextResponse.json({ error: "Scheduled post not found" }, { status: 404 })
+    }
+
+    return NextResponse.json(post)
+  } catch (error) {
+    console.error("[GET /api/scheduled-posts/[id]] Error:", error)
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to fetch scheduled post",
+      },
+      { status: 500 },
+    )
+  }
+}
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const postId = params.id
     const body = await request.json()
-    const { id } = params
+    console.log("PUT /api/scheduled-posts/[id] - postId:", postId, "body:", body)
 
-    const updatedPost = await db?.updateScheduledPost(id, body)
+    const updatedPost = await db.updateScheduledPost(postId, body)
 
     if (!updatedPost) {
       return NextResponse.json({ error: "Scheduled post not found" }, { status: 404 })
     }
 
-    return NextResponse.json({
-      success: true,
-      post: updatedPost,
-    })
+    console.log("Scheduled post updated:", updatedPost)
+    return NextResponse.json(updatedPost)
   } catch (error) {
-    console.error("[PUT /api/scheduled-posts/[id]]", error)
+    console.error("[PUT /api/scheduled-posts/[id]] Error:", error)
     return NextResponse.json(
       {
-        success: false,
         error: error instanceof Error ? error.message : "Failed to update scheduled post",
       },
       { status: 500 },
@@ -30,28 +52,21 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = params
+    const postId = params.id
+    console.log("DELETE /api/scheduled-posts/[id] - postId:", postId)
 
-    // First check if post exists
-    const existingPost = await db?.getScheduledPosts()
-    const postExists = existingPost?.find((p) => p.id === id)
+    const success = await db.deleteScheduledPost(postId)
 
-    if (!postExists) {
+    if (!success) {
       return NextResponse.json({ error: "Scheduled post not found" }, { status: 404 })
     }
 
-    // Delete the post (you'll need to implement this method in your database class)
-    const success = await db?.updateScheduledPost(id, { status: "deleted" })
-
-    return NextResponse.json({
-      success: true,
-      message: "Scheduled post deleted successfully",
-    })
+    console.log("Scheduled post deleted successfully")
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[DELETE /api/scheduled-posts/[id]]", error)
+    console.error("[DELETE /api/scheduled-posts/[id]] Error:", error)
     return NextResponse.json(
       {
-        success: false,
         error: error instanceof Error ? error.message : "Failed to delete scheduled post",
       },
       { status: 500 },

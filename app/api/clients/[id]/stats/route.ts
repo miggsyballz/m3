@@ -1,10 +1,10 @@
-export const runtime = "nodejs"
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const clientId = params.id
+    console.log("GET /api/clients/[id]/stats - clientId:", clientId)
 
     if (!clientId) {
       return NextResponse.json({ error: "Client ID is required" }, { status: 400 })
@@ -40,12 +40,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       upcomingPosts: upcomingPosts.slice(0, 5), // Next 5 posts
     }
 
+    console.log("Client stats:", stats)
     return NextResponse.json(stats)
   } catch (error) {
-    console.error("[GET /api/clients/[id]/stats]", error)
+    console.error("[GET /api/clients/[id]/stats] Error:", error)
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Failed to fetch client stats",
+        totalCampaigns: 0,
+        activeCampaigns: 0,
+        scheduledPosts: 0,
+        totalPosts: 0,
       },
       { status: 500 },
     )
