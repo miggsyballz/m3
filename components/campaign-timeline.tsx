@@ -189,24 +189,30 @@ export function CampaignTimeline({ selectedClient, onClickItem }: CampaignTimeli
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex gap-1">
-                        {campaign.platforms.map((platform) => (
-                          <Badge key={platform} variant="outline" className="text-xs">
-                            {platform}
-                          </Badge>
-                        ))}
-                        {campaign.platforms.length === 0 && (
-                          <Badge variant="outline" className="text-xs">
-                            No platforms
-                          </Badge>
-                        )}
-                      </div>
-                      <Button variant="outline" size="sm">
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Details
-                      </Button>
-                    </div>
+                    {(() => {
+                      const platforms = Array.isArray(campaign.platforms) ? campaign.platforms : []
+
+                      return (
+                        <div className="flex items-center justify-between">
+                          <div className="flex gap-1">
+                            {platforms.map((platform) => (
+                              <Badge key={platform} variant="outline" className="text-xs">
+                                {platform}
+                              </Badge>
+                            ))}
+                            {platforms.length === 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                No platforms
+                              </Badge>
+                            )}
+                          </div>
+                          <Button variant="outline" size="sm">
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </Button>
+                        </div>
+                      )
+                    })()}
 
                     <div className="mt-2 text-xs text-muted-foreground">
                       <p>Type: {campaign.type}</p>

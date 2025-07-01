@@ -1,7 +1,5 @@
-// Mock database implementation since Neon was removed
-// This provides fallback data until a new database is connected
-
-export interface Client {
+// Mock database for M3 - In-memory storage
+interface Client {
   id: string
   client_name: string
   ig_handle: string | null
@@ -13,53 +11,34 @@ export interface Client {
   updated_at: string
 }
 
-export interface Campaign {
+interface Campaign {
   id: string
   client_id: string
   name: string
-  type: string
-  platforms: string[]
-  hashtags: string[]
+  description: string | null
+  status: "draft" | "active" | "paused" | "completed"
   start_date: string | null
   end_date: string | null
-  status: "draft" | "active" | "scheduled" | "completed"
+  budget: number | null
   created_at: string
   updated_at: string
 }
 
-export interface ContentItem {
+interface ScheduledPost {
   id: string
   client_id: string
   campaign_id: string | null
-  name: string
-  type: "image" | "video" | "audio" | "document"
-  file_path: string
-  file_size: number
-  created_at: string
-  updated_at: string
-}
-
-export interface ScheduledPost {
-  id: string
-  campaign_id: string | null
-  client_id: string
-  platform: string
+  platform: "instagram" | "facebook" | "twitter" | "linkedin" | "tiktok" | "youtube"
   content: string
-  media_urls: string[]
-  hashtags: string[]
-  scheduled_time: string
+  hashtags: string | null
+  scheduled_for: string
   status: "draft" | "scheduled" | "published" | "failed"
   created_at: string
   updated_at: string
 }
 
-export type ClientInsert = Omit<Client, "id" | "created_at" | "updated_at">
-export type CampaignInsert = Omit<Campaign, "id" | "created_at" | "updated_at">
-export type ContentItemInsert = Omit<ContentItem, "id" | "created_at" | "updated_at">
-export type ScheduledPostInsert = Omit<ScheduledPost, "id" | "created_at" | "updated_at">
-
-// In-memory storage (temporary until new database is connected)
-let mockClients: Client[] = [
+// In-memory storage
+const clients: Client[] = [
   {
     id: "1",
     client_name: "MaxxBeats",
@@ -67,299 +46,205 @@ let mockClients: Client[] = [
     fb_page: "facebook.com/maxxbeats",
     linkedin_url: "linkedin.com/company/maxxbeats",
     contact_email: "mig@maxxbeats.com",
-    notes: "Music production and beat sales",
+    notes:
+      "Music producer and digital content creator specializing in instrumentals, plugins, and music production services.",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
 ]
 
-const mockCampaigns: Campaign[] = [
+const campaigns: Campaign[] = [
   {
     id: "1",
     client_id: "1",
     name: "Beat Drop Campaign",
-    type: "product_launch",
-    platforms: ["instagram", "facebook"],
-    hashtags: ["#beats", "#music", "#producer"],
-    start_date: new Date().toISOString(),
-    end_date: null,
+    description: "Promote new instrumental releases and music production services",
     status: "active",
+    start_date: new Date().toISOString(),
+    end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    budget: 5000,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
 ]
 
-const mockContent: ContentItem[] = []
-const mockScheduledPosts: ScheduledPost[] = []
+const scheduledPosts: ScheduledPost[] = [
+  {
+    id: "1",
+    client_id: "1",
+    campaign_id: "1",
+    platform: "instagram",
+    content: "New fire beats dropping this week! 🔥 Check out the latest instrumentals on maxxbeats.com",
+    hashtags: "#beats #producer #instrumental #hiphop #trap #music",
+    scheduled_for: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
+    status: "scheduled",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "2",
+    client_id: "1",
+    campaign_id: "1",
+    platform: "twitter",
+    content: "Working on some new heat in the studio 🎵 What genre should I tackle next?",
+    hashtags: "#musicproducer #beats #studio #music",
+    scheduled_for: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // tomorrow
+    status: "draft",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+]
 
-class MockDatabase {
-  // Client operations
-  async createClient(clientData: ClientInsert): Promise<Client> {
-    try {
-      console.log("Creating client with data:", clientData)
-      const newClient: Client = {
-        id: Date.now().toString(),
-        ...clientData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-      mockClients.push(newClient)
-      console.log("Client created successfully:", newClient)
-      return newClient
-    } catch (error) {
-      console.error("Error creating client:", error)
-      throw new Error(`Failed to create client: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
+// Database functions
+export const db = {
+  // Clients
   async getClients(): Promise<Client[]> {
-    try {
-      return mockClients
-    } catch (error) {
-      console.error("Error fetching clients:", error)
-      throw new Error(`Failed to fetch clients: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+    return clients
+  },
 
   async getClientById(id: string): Promise<Client | null> {
-    try {
-      return mockClients.find((client) => client.id === id) || null
-    } catch (error) {
-      console.error("Error fetching client:", error)
-      throw new Error(`Failed to fetch client: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+    return clients.find((c) => c.id === id) || null
+  },
 
-  async updateClient(id: string, updates: Partial<Client>): Promise<Client | null> {
-    try {
-      const clientIndex = mockClients.findIndex((client) => client.id === id)
-      if (clientIndex === -1) return null
-
-      mockClients[clientIndex] = {
-        ...mockClients[clientIndex],
-        ...updates,
-        updated_at: new Date().toISOString(),
-      }
-      return mockClients[clientIndex]
-    } catch (error) {
-      console.error("Error updating client:", error)
-      throw new Error(`Failed to update client: ${error instanceof Error ? error.message : "Unknown error"}`)
+  async createClient(data: Omit<Client, "id" | "created_at" | "updated_at">): Promise<Client> {
+    const client: Client = {
+      ...data,
+      id: Date.now().toString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
-  }
+    clients.push(client)
+    return client
+  },
+
+  async updateClient(id: string, data: Partial<Omit<Client, "id" | "created_at">>): Promise<Client | null> {
+    const index = clients.findIndex((c) => c.id === id)
+    if (index === -1) return null
+
+    clients[index] = {
+      ...clients[index],
+      ...data,
+      updated_at: new Date().toISOString(),
+    }
+    return clients[index]
+  },
 
   async deleteClient(id: string): Promise<boolean> {
-    try {
-      const initialLength = mockClients.length
-      mockClients = mockClients.filter((client) => client.id !== id)
-      return mockClients.length < initialLength
-    } catch (error) {
-      console.error("Error deleting client:", error)
-      throw new Error(`Failed to delete client: ${error instanceof Error ? error.message : "Unknown error"}`)
+    const index = clients.findIndex((c) => c.id === id)
+    if (index === -1) return false
+
+    clients.splice(index, 1)
+    return true
+  },
+
+  // Campaigns
+  async getCampaigns(clientId?: string): Promise<Campaign[]> {
+    if (clientId) {
+      return campaigns.filter((c) => c.client_id === clientId)
     }
-  }
+    return campaigns
+  },
 
-  // Campaign operations
-  async createCampaign(campaignData: CampaignInsert): Promise<Campaign> {
-    try {
-      console.log("Creating campaign with data:", campaignData)
-      const newCampaign: Campaign = {
-        id: Date.now().toString(),
-        ...campaignData,
-        status: campaignData.status || "draft",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-      mockCampaigns.push(newCampaign)
-      console.log("Campaign created successfully:", newCampaign)
-      return newCampaign
-    } catch (error) {
-      console.error("Error creating campaign:", error)
-      throw new Error(`Failed to create campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
+  async getCampaignById(id: string): Promise<Campaign | null> {
+    return campaigns.find((c) => c.id === id) || null
+  },
+
+  async createCampaign(data: Omit<Campaign, "id" | "created_at" | "updated_at">): Promise<Campaign> {
+    const campaign: Campaign = {
+      ...data,
+      id: Date.now().toString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
-  }
+    campaigns.push(campaign)
+    return campaign
+  },
 
-  async getCampaigns(): Promise<Campaign[]> {
-    try {
-      return mockCampaigns
-    } catch (error) {
-      console.error("Error fetching campaigns:", error)
-      throw new Error(`Failed to fetch campaigns: ${error instanceof Error ? error.message : "Unknown error"}`)
+  async updateCampaign(id: string, data: Partial<Omit<Campaign, "id" | "created_at">>): Promise<Campaign | null> {
+    const index = campaigns.findIndex((c) => c.id === id)
+    if (index === -1) return null
+
+    campaigns[index] = {
+      ...campaigns[index],
+      ...data,
+      updated_at: new Date().toISOString(),
     }
-  }
+    return campaigns[index]
+  },
 
-  async getCampaignsByClientId(clientId: string): Promise<Campaign[]> {
-    try {
-      return mockCampaigns.filter((campaign) => campaign.client_id === clientId)
-    } catch (error) {
-      console.error("Error fetching campaigns by client:", error)
-      throw new Error(`Failed to fetch campaigns: ${error instanceof Error ? error.message : "Unknown error"}`)
+  async deleteCampaign(id: string): Promise<boolean> {
+    const index = campaigns.findIndex((c) => c.id === id)
+    if (index === -1) return false
+
+    campaigns.splice(index, 1)
+    return true
+  },
+
+  // Scheduled Posts
+  async getScheduledPosts(clientId?: string): Promise<ScheduledPost[]> {
+    if (clientId) {
+      return scheduledPosts.filter((p) => p.client_id === clientId)
     }
-  }
+    return scheduledPosts
+  },
 
-  async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | null> {
-    try {
-      const campaignIndex = mockCampaigns.findIndex((campaign) => campaign.id === id)
-      if (campaignIndex === -1) return null
+  async getScheduledPostById(id: string): Promise<ScheduledPost | null> {
+    return scheduledPosts.find((p) => p.id === id) || null
+  },
 
-      mockCampaigns[campaignIndex] = {
-        ...mockCampaigns[campaignIndex],
-        ...updates,
-        updated_at: new Date().toISOString(),
-      }
-      return mockCampaigns[campaignIndex]
-    } catch (error) {
-      console.error("Error updating campaign:", error)
-      throw new Error(`Failed to update campaign: ${error instanceof Error ? error.message : "Unknown error"}`)
+  async createScheduledPost(data: Omit<ScheduledPost, "id" | "created_at" | "updated_at">): Promise<ScheduledPost> {
+    const post: ScheduledPost = {
+      ...data,
+      id: Date.now().toString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
-  }
+    scheduledPosts.push(post)
+    return post
+  },
 
-  // Content operations
-  async createContentItem(contentData: ContentItemInsert): Promise<ContentItem> {
-    try {
-      console.log("Creating content item with data:", contentData)
-      const newContent: ContentItem = {
-        id: Date.now().toString(),
-        ...contentData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-      mockContent.push(newContent)
-      console.log("Content item created successfully:", newContent)
-      return newContent
-    } catch (error) {
-      console.error("Error creating content item:", error)
-      throw new Error(`Failed to create content item: ${error instanceof Error ? error.message : "Unknown error"}`)
+  async updateScheduledPost(
+    id: string,
+    data: Partial<Omit<ScheduledPost, "id" | "created_at">>,
+  ): Promise<ScheduledPost | null> {
+    const index = scheduledPosts.findIndex((p) => p.id === id)
+    if (index === -1) return null
+
+    scheduledPosts[index] = {
+      ...scheduledPosts[index],
+      ...data,
+      updated_at: new Date().toISOString(),
     }
-  }
-
-  async getContentItems(): Promise<ContentItem[]> {
-    try {
-      return mockContent
-    } catch (error) {
-      console.error("Error fetching content items:", error)
-      throw new Error(`Failed to fetch content items: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  async getContentByClientId(clientId: string): Promise<ContentItem[]> {
-    try {
-      return mockContent.filter((content) => content.client_id === clientId)
-    } catch (error) {
-      console.error("Error fetching content by client:", error)
-      throw new Error(`Failed to fetch content: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  // Scheduled posts operations
-  async createScheduledPost(postData: ScheduledPostInsert): Promise<ScheduledPost> {
-    try {
-      console.log("Creating scheduled post with data:", postData)
-      const newPost: ScheduledPost = {
-        id: Date.now().toString(),
-        ...postData,
-        status: postData.status || "draft",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-      mockScheduledPosts.push(newPost)
-      console.log("Scheduled post created successfully:", newPost)
-      return newPost
-    } catch (error) {
-      console.error("Error creating scheduled post:", error)
-      throw new Error(`Failed to create scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  async getScheduledPosts(): Promise<ScheduledPost[]> {
-    try {
-      return mockScheduledPosts.filter((post) => post.status !== "deleted")
-    } catch (error) {
-      console.error("Error fetching scheduled posts:", error)
-      throw new Error(`Failed to fetch scheduled posts: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  async getScheduledPostsByClientId(clientId: string): Promise<ScheduledPost[]> {
-    try {
-      return mockScheduledPosts.filter((post) => post.client_id === clientId && post.status !== "deleted")
-    } catch (error) {
-      console.error("Error fetching scheduled posts by client:", error)
-      throw new Error(`Failed to fetch scheduled posts: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  async updateScheduledPost(id: string, updates: Partial<ScheduledPost>): Promise<ScheduledPost | null> {
-    try {
-      console.log("Updating scheduled post:", id, updates)
-      const postIndex = mockScheduledPosts.findIndex((post) => post.id === id)
-      if (postIndex === -1) return null
-
-      mockScheduledPosts[postIndex] = {
-        ...mockScheduledPosts[postIndex],
-        ...updates,
-        updated_at: new Date().toISOString(),
-      }
-      console.log("Scheduled post updated successfully:", mockScheduledPosts[postIndex])
-      return mockScheduledPosts[postIndex]
-    } catch (error) {
-      console.error("Error updating scheduled post:", error)
-      throw new Error(`Failed to update scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+    return scheduledPosts[index]
+  },
 
   async deleteScheduledPost(id: string): Promise<boolean> {
-    try {
-      console.log("Deleting scheduled post:", id)
-      const postIndex = mockScheduledPosts.findIndex((post) => post.id === id)
-      if (postIndex === -1) return false
+    const index = scheduledPosts.findIndex((p) => p.id === id)
+    if (index === -1) return false
 
-      mockScheduledPosts[postIndex].status = "deleted"
-      mockScheduledPosts[postIndex].updated_at = new Date().toISOString()
-      console.log("Scheduled post deleted successfully")
-      return true
-    } catch (error) {
-      console.error("Error deleting scheduled post:", error)
-      throw new Error(`Failed to delete scheduled post: ${error instanceof Error ? error.message : "Unknown error"}`)
+    scheduledPosts.splice(index, 1)
+    return true
+  },
+
+  // Stats
+  async getClientStats(clientId: string): Promise<{
+    totalCampaigns: number
+    activeCampaigns: number
+    scheduledPosts: number
+    totalPosts: number
+  }> {
+    const clientCampaigns = campaigns.filter((c) => c.client_id === clientId)
+    const clientPosts = scheduledPosts.filter((p) => p.client_id === clientId)
+    const now = new Date()
+    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+
+    return {
+      totalCampaigns: clientCampaigns.length,
+      activeCampaigns: clientCampaigns.filter((c) => c.status === "active").length,
+      scheduledPosts: clientPosts.filter(
+        (p) => p.status === "scheduled" && new Date(p.scheduled_for) >= now && new Date(p.scheduled_for) <= nextWeek,
+      ).length,
+      totalPosts: clientPosts.length,
     }
-  }
-
-  // Analytics and dashboard queries
-  async getDashboardStats(clientId?: string) {
-    try {
-      const clients = clientId ? [await this.getClientById(clientId)].filter(Boolean) : await this.getClients()
-      const campaigns = clientId ? await this.getCampaignsByClientId(clientId) : await this.getCampaigns()
-      const scheduledPosts = clientId
-        ? await this.getScheduledPostsByClientId(clientId)
-        : await this.getScheduledPosts()
-
-      const activeCampaigns = campaigns.filter((c) => c.status === "active")
-      const upcomingPosts = scheduledPosts.filter(
-        (p) => p.status === "scheduled" && new Date(p.scheduled_time) > new Date(),
-      )
-
-      return {
-        totalClients: clients.length,
-        totalCampaigns: campaigns.length,
-        activeCampaigns: activeCampaigns.length,
-        scheduledPosts: upcomingPosts.length,
-        campaigns,
-        upcomingPosts: upcomingPosts.slice(0, 5),
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard stats:", error)
-      throw error
-    }
-  }
-
-  // Test database connection
-  async testConnection(): Promise<boolean> {
-    try {
-      return true // Mock database is always "connected"
-    } catch (error) {
-      console.error("Database connection test failed:", error)
-      return false
-    }
-  }
+  },
 }
-
-export const db = new MockDatabase()

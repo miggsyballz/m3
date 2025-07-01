@@ -4,261 +4,178 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Wand2, Copy, RefreshCw, Sparkles, CheckCircle, AlertCircle } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Copy, Wand2, Sparkles, CheckCircle } from "lucide-react"
 
-export function AIRewriterStandalone() {
+export default function AIRewriterStandalone() {
   const [originalText, setOriginalText] = useState("")
   const [rewrittenText, setRewrittenText] = useState("")
-  const [tone, setTone] = useState("Friendly")
-  const [platform, setPlatform] = useState("Instagram")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-
-  const tones = [
-    { value: "Friendly", label: "Friendly" },
-    { value: "Professional", label: "Professional" },
-    { value: "Casual", label: "Casual" },
-    { value: "Energetic", label: "Energetic" },
-    { value: "Creative", label: "Creative" },
-    { value: "Inspirational", label: "Inspirational" },
-    { value: "Humorous", label: "Humorous" },
-    { value: "Authoritative", label: "Authoritative" },
-  ]
-
-  const platforms = [
-    { value: "Instagram", label: "Instagram" },
-    { value: "TikTok", label: "TikTok" },
-    { value: "Twitter", label: "Twitter" },
-    { value: "Facebook", label: "Facebook" },
-    { value: "LinkedIn", label: "LinkedIn" },
-    { value: "YouTube", label: "YouTube" },
-  ]
+  const [loading, setLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const handleRewrite = async () => {
-    if (!originalText.trim()) {
-      setError("Please enter some text to rewrite")
-      return
-    }
+    if (!originalText.trim()) return
 
-    setIsLoading(true)
-    setError("")
-    setSuccess("")
-
+    setLoading(true)
     try {
       const response = await fetch("/api/content/ai-rewrite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          captions: [originalText.trim()],
-          tone,
-          platform,
+          content: originalText,
+          style: "engaging",
+          platform: "general",
         }),
       })
 
       if (response.ok) {
-        const result = await response.json()
-        if (result.rewrittenCaptions && result.rewrittenCaptions.length > 0) {
-          setRewrittenText(result.rewrittenCaptions[0])
-          setSuccess("Caption rewritten successfully!")
-        } else {
-          setError("No rewritten content received")
-        }
+        const data = await response.json()
+        setRewrittenText(data.rewrittenContent || "Unable to rewrite content at this time.")
       } else {
-        const errorData = await response.json()
-        if (errorData.needsSetup) {
-          setError("⚙️ OpenAI API key not configured. Please add it in Settings → API Keys tab.")
-        } else {
-          setError(errorData.error || "Failed to rewrite caption")
-        }
+        setRewrittenText("Error: Unable to rewrite content. Please try again.")
       }
     } catch (error) {
-      console.error("Rewrite error:", error)
-      setError("Failed to connect to AI service")
+      console.error("Error rewriting content:", error)
+      setRewrittenText("Error: Unable to connect to AI service. Please try again.")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setSuccess("Copied to clipboard!")
-    setTimeout(() => setSuccess(""), 2000)
-  }
-
-  const clearAll = () => {
-    setOriginalText("")
-    setRewrittenText("")
-    setError("")
-    setSuccess("")
+  const copyToClipboard = async () => {
+    if (rewrittenText) {
+      await navigator.clipboard.writeText(rewrittenText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">AI Caption Rewriter</h1>
-          <p className="text-muted-foreground">Transform your captions with AI-powered rewriting</p>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Wand2 className="h-8 w-8 text-primary" />
+            AI Content Rewriter
+          </h1>
+          <p className="text-muted-foreground">
+            Transform your content with AI-powered rewriting for better engagement
+          </p>
         </div>
-        <Badge variant="outline" className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4" />
-          GPT-4 Powered
+        <Badge variant="secondary" className="flex items-center gap-1">
+          <Sparkles className="h-3 w-3" />
+          AI Powered
         </Badge>
       </div>
 
-      {success && (
-        <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800 dark:text-green-200">{success}</AlertDescription>
-        </Alert>
-      )}
-
-      {error && (
-        <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-          <AlertCircle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800 dark:text-red-200">{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-4">
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Settings</CardTitle>
-              <CardDescription>Configure AI rewriting parameters</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="tone">Tone</Label>
-                <Select value={tone} onValueChange={setTone}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tones.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="platform">Platform</Label>
-                <Select value={platform} onValueChange={setPlatform}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select platform" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {platforms.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="p-3 bg-muted rounded-lg text-sm">
-                <p className="font-medium mb-1">Current Settings:</p>
-                <p>Platform: {platform}</p>
-                <p>Tone: {tone}</p>
-                <p>Model: GPT-4</p>
-                <p>Max Length: 200 words</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wand2 className="h-5 w-5" />
-                Caption Rewriter
-              </CardTitle>
-              <CardDescription>Enter your original caption and get an AI-powered rewrite</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="original">Original Text</Label>
-                    <span className="text-xs text-muted-foreground">{originalText.length} characters</span>
-                  </div>
-                  <Textarea
-                    id="original"
-                    placeholder="Enter your original caption here..."
-                    value={originalText}
-                    onChange={(e) => setOriginalText(e.target.value)}
-                    rows={8}
-                    className="resize-none"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="rewritten">AI Rewritten</Label>
-                    <div className="flex gap-2">
-                      {rewrittenText && (
-                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(rewrittenText)}>
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <span className="text-xs text-muted-foreground">{rewrittenText.length} characters</span>
-                    </div>
-                  </div>
-                  <Textarea
-                    id="rewritten"
-                    placeholder="AI rewritten text will appear here..."
-                    value={rewrittenText}
-                    readOnly
-                    rows={8}
-                    className="resize-none bg-muted/50"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Button onClick={handleRewrite} disabled={!originalText.trim() || isLoading} className="flex-1">
-                  {isLoading ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Rewriting...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Rewrite with AI
-                    </>
-                  )}
-                </Button>
-                <Button variant="outline" onClick={clearAll}>
-                  Clear
-                </Button>
-              </div>
-
-              {rewrittenText && (
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-medium mb-2">AI Analysis:</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Maintained original content context and meaning</li>
-                    <li>• Optimized for {platform} platform format</li>
-                    <li>• Applied {tone.toLowerCase()} tone throughout</li>
-                    <li>• Added relevant hashtags and engagement elements</li>
-                    <li>• Kept under 200 words as requested</li>
-                  </ul>
-                </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Input Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Original Content</CardTitle>
+            <CardDescription>Paste your content here to rewrite it with AI</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              placeholder="Enter your content here..."
+              value={originalText}
+              onChange={(e) => setOriginalText(e.target.value)}
+              className="min-h-[200px] resize-none"
+            />
+            <Button onClick={handleRewrite} disabled={!originalText.trim() || loading} className="w-full">
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Rewriting...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Rewrite Content
+                </>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Output Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>AI Rewritten Content</CardTitle>
+            <CardDescription>Your content optimized for better engagement</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="min-h-[200px] p-3 border rounded-md bg-muted/50">
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">AI is rewriting your content...</p>
+                  </div>
+                </div>
+              ) : rewrittenText ? (
+                <p className="whitespace-pre-wrap text-sm">{rewrittenText}</p>
+              ) : (
+                <p className="text-muted-foreground text-sm">Rewritten content will appear here...</p>
+              )}
+            </div>
+            <Button
+              onClick={copyToClipboard}
+              disabled={!rewrittenText}
+              variant="outline"
+              className="w-full bg-transparent"
+            >
+              {copied ? (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy to Clipboard
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
+
+      <Separator />
+
+      {/* Tips Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">💡 Rewriting Tips</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <h4 className="font-medium mb-2">Best Practices:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Keep original meaning intact</li>
+                <li>• Improve clarity and flow</li>
+                <li>• Optimize for your target audience</li>
+                <li>• Maintain brand voice consistency</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Use Cases:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Social media captions</li>
+                <li>• Email marketing content</li>
+                <li>• Blog post excerpts</li>
+                <li>• Product descriptions</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
+
+// Named export for compatibility
+export { AIRewriterStandalone }
+export const AiRewriterStandalone = AIRewriterStandalone

@@ -3,22 +3,22 @@ import { db } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("GET /api/campaigns - Starting request")
+
     const { searchParams } = new URL(request.url)
-    const clientId = searchParams.get("clientId") ?? undefined
+    const clientId = searchParams.get("clientId")
 
-    console.log("GET /api/campaigns - clientId:", clientId)
+    console.log("GET /api/campaigns - Client ID:", clientId)
 
-    const campaigns = clientId ? await db.getCampaignsByClientId(clientId) : await db.getCampaigns()
+    const campaigns = await db.getCampaigns(clientId || undefined)
 
-    console.log("Campaigns fetched:", campaigns.length)
+    console.log("GET /api/campaigns - Found campaigns:", campaigns.length)
+
     return NextResponse.json(campaigns)
   } catch (error) {
-    console.error("[GET /api/campaigns] Error:", error)
+    console.error("GET /api/campaigns - Error:", error)
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to fetch campaigns",
-        campaigns: [],
-      },
+      { error: "Failed to fetch campaigns", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 },
     )
   }
@@ -26,23 +26,34 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    console.log("POST /api/campaigns - body:", body)
+    console.log("POST /api/campaigns - Starting request")
 
-    if (!body.client_id || !body.name || !body.type) {
-      return NextResponse.json({ error: "Missing required fields: client_id, name, type" }, { status: 400 })
+    const body = await request.json()
+    console.log("POST /api/campaigns - Request body:", body)
+
+    const { client_id, name, description, status, start_date, end_date, budget } = body
+
+    if (!client_id || !name) {
+      return NextResponse.json({ error: "Missing required fields: client_id and name are required" }, { status: 400 })
     }
 
-    const newCampaign = await db.createCampaign(body)
-    console.log("Campaign created:", newCampaign)
+    const campaign = await db.createCampaign({
+      client_id,
+      name,
+      description: description || null,
+      status: status || "draft",
+      start_date: start_date || null,
+      end_date: end_date || null,
+      budget: budget || null,
+    })
 
-    return NextResponse.json(newCampaign, { status: 201 })
+    console.log("POST /api/campaigns - Created campaign:", campaign)
+
+    return NextResponse.json(campaign, { status: 201 })
   } catch (error) {
-    console.error("[POST /api/campaigns] Error:", error)
+    console.error("POST /api/campaigns - Error:", error)
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to create campaign",
-      },
+      { error: "Failed to create campaign", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 },
     )
   }

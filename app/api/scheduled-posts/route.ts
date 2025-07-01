@@ -3,22 +3,22 @@ import { db } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("GET /api/scheduled-posts - Starting request")
+
     const { searchParams } = new URL(request.url)
-    const clientId = searchParams.get("clientId") ?? undefined
+    const clientId = searchParams.get("clientId")
 
-    console.log("GET /api/scheduled-posts - clientId:", clientId)
+    console.log("GET /api/scheduled-posts - Client ID:", clientId)
 
-    const posts = clientId ? await db.getScheduledPostsByClientId(clientId) : await db.getScheduledPosts()
+    const posts = await db.getScheduledPosts(clientId || undefined)
 
-    console.log("Scheduled posts fetched:", posts.length)
+    console.log("GET /api/scheduled-posts - Found posts:", posts.length)
+
     return NextResponse.json(posts)
   } catch (error) {
-    console.error("[GET /api/scheduled-posts] Error:", error)
+    console.error("GET /api/scheduled-posts - Error:", error)
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to fetch scheduled posts",
-        posts: [],
-      },
+      { error: "Failed to fetch scheduled posts", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 },
     )
   }
@@ -26,35 +26,37 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    console.log("POST /api/scheduled-posts - body:", body)
+    console.log("POST /api/scheduled-posts - Starting request")
 
-    if (!body.client_id || !body.platform || !body.content || !body.scheduled_time) {
+    const body = await request.json()
+    console.log("POST /api/scheduled-posts - Request body:", body)
+
+    const { client_id, campaign_id, platform, content, hashtags, scheduled_for, status } = body
+
+    if (!client_id || !platform || !content || !scheduled_for) {
       return NextResponse.json(
-        { error: "Missing required fields: client_id, platform, content, scheduled_time" },
+        { error: "Missing required fields: client_id, platform, content, and scheduled_for are required" },
         { status: 400 },
       )
     }
 
-    const newPost = await db.createScheduledPost({
-      campaign_id: body.campaign_id || null,
-      client_id: body.client_id,
-      platform: body.platform,
-      content: body.content,
-      media_urls: body.media_urls || [],
-      hashtags: body.hashtags || [],
-      scheduled_time: body.scheduled_time,
-      status: body.status || "draft",
+    const post = await db.createScheduledPost({
+      client_id,
+      campaign_id: campaign_id || null,
+      platform,
+      content,
+      hashtags: hashtags || null,
+      scheduled_for,
+      status: status || "draft",
     })
 
-    console.log("Scheduled post created:", newPost)
-    return NextResponse.json(newPost, { status: 201 })
+    console.log("POST /api/scheduled-posts - Created post:", post)
+
+    return NextResponse.json(post, { status: 201 })
   } catch (error) {
-    console.error("[POST /api/scheduled-posts] Error:", error)
+    console.error("POST /api/scheduled-posts - Error:", error)
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to create scheduled post",
-      },
+      { error: "Failed to create scheduled post", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 },
     )
   }
