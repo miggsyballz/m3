@@ -1,14 +1,18 @@
-export const runtime = "nodejs"
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/database"
 
-/**
- * GET /api/campaigns/[id]
- * Get a specific campaign by ID
- */
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    if (!db) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 500 })
+    }
+
     const campaignId = params.id
+
+    if (!campaignId) {
+      return NextResponse.json({ error: "Campaign ID is required" }, { status: 400 })
+    }
+
     const campaign = await db.getCampaignById(campaignId)
 
     if (!campaign) {
@@ -17,24 +21,25 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json(campaign)
   } catch (error) {
-    console.error("[GET /api/campaigns/[id]]", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch campaign" },
-      { status: 500 },
-    )
+    console.error("Error fetching campaign:", error)
+    return NextResponse.json({ error: "Failed to fetch campaign" }, { status: 500 })
   }
 }
 
-/**
- * PUT /api/campaigns/[id]
- * Update a campaign
- */
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const campaignId = params.id
-    const updates = await request.json()
+    if (!db) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 500 })
+    }
 
-    const updatedCampaign = await db.updateCampaign(campaignId, updates)
+    const campaignId = params.id
+    const body = await request.json()
+
+    if (!campaignId) {
+      return NextResponse.json({ error: "Campaign ID is required" }, { status: 400 })
+    }
+
+    const updatedCampaign = await db.updateCampaign(campaignId, body)
 
     if (!updatedCampaign) {
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 })
@@ -42,21 +47,23 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json(updatedCampaign)
   } catch (error) {
-    console.error("[PUT /api/campaigns/[id]]", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update campaign" },
-      { status: 500 },
-    )
+    console.error("Error updating campaign:", error)
+    return NextResponse.json({ error: "Failed to update campaign" }, { status: 500 })
   }
 }
 
-/**
- * DELETE /api/campaigns/[id]
- * Delete a campaign
- */
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    if (!db) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 500 })
+    }
+
     const campaignId = params.id
+
+    if (!campaignId) {
+      return NextResponse.json({ error: "Campaign ID is required" }, { status: 400 })
+    }
+
     const success = await db.deleteCampaign(campaignId)
 
     if (!success) {
@@ -65,10 +72,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ message: "Campaign deleted successfully" })
   } catch (error) {
-    console.error("[DELETE /api/campaigns/[id]]", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to delete campaign" },
-      { status: 500 },
-    )
+    console.error("Error deleting campaign:", error)
+    return NextResponse.json({ error: "Failed to delete campaign" }, { status: 500 })
   }
 }

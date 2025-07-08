@@ -52,7 +52,7 @@ export default function ScheduledContentQueue({ selectedClientId }: ScheduledCon
   const loadScheduledPosts = async () => {
     try {
       setLoading(true)
-      const url = selectedClientId ? `/api/scheduled-posts?client_id=${selectedClientId}` : "/api/scheduled-posts"
+      const url = selectedClientId ? `/api/scheduled-posts?clientId=${selectedClientId}` : "/api/scheduled-posts"
 
       const response = await fetch(url)
       if (!response.ok) throw new Error("Failed to fetch posts")

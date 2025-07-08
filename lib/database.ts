@@ -5,14 +5,6 @@ if (typeof window !== "undefined") {
   throw new Error("Database operations cannot run on the client side")
 }
 
-// Get connection string
-const connectionString =
-  process.env.DATABASE_URL ||
-  process.env.POSTGRES_URL ||
-  process.env.POSTGRES_PRISMA_URL ||
-  process.env.NEON_DATABASE_URL ||
-  ""
-
 // Database types
 export interface Client {
   id: string
@@ -91,10 +83,21 @@ class NeonDatabase {
   private sql: any
 
   constructor() {
+    const connectionString = this.getConnectionString()
     if (!connectionString) {
       throw new Error("DATABASE_URL is required but not provided")
     }
     this.sql = neon(connectionString)
+  }
+
+  private getConnectionString(): string {
+    return (
+      process.env.DATABASE_URL ||
+      process.env.POSTGRES_URL ||
+      process.env.POSTGRES_PRISMA_URL ||
+      process.env.NEON_DATABASE_URL ||
+      ""
+    )
   }
 
   // Client operations
@@ -452,9 +455,27 @@ class NeonDatabase {
   }
 }
 
-// Export the database instance
-export const db = connectionString ? new NeonDatabase() : null
+// Lazy initialization function
+function createDatabase(): NeonDatabase | null {
+  try {
+    const connectionString =
+      process.env.DATABASE_URL ||
+      process.env.POSTGRES_URL ||
+      process.env.POSTGRES_PRISMA_URL ||
+      process.env.NEON_DATABASE_URL ||
+      ""
 
-if (!db) {
-  console.warn("Database not configured. Please add DATABASE_URL environment variable.")
+    if (!connectionString) {
+      console.warn("Database not configured. Please add DATABASE_URL environment variable.")
+      return null
+    }
+
+    return new NeonDatabase()
+  } catch (error) {
+    console.warn("Failed to initialize database:", error)
+    return null
+  }
 }
+
+// Export the database instance (lazy initialization)
+export const db = createDatabase()

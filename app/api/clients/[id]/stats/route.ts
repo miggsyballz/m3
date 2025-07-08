@@ -1,58 +1,37 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { db } from "@/lib/database"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    if (!db) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 500 })
+    }
+
     const clientId = params.id
-    console.log("GET /api/clients/[id]/stats - clientId:", clientId)
 
     if (!clientId) {
       return NextResponse.json({ error: "Client ID is required" }, { status: 400 })
     }
 
-    // Get client info
-    const client = await db.getClientById(clientId)
-    if (!client) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 })
-    }
-
-    // Get real campaigns for this client
+    // Get client campaigns
     const campaigns = await db.getCampaignsByClientId(clientId)
 
-    // Get real content for this client
-    const content = await db.getContentByClientId(clientId)
-
-    // Get real scheduled posts for this client
+    // Get scheduled posts for this client
     const scheduledPosts = await db.getScheduledPostsByClientId(clientId)
 
-    // Calculate real stats
-    const activeCampaigns = campaigns.filter((c) => c.status === "active")
-    const upcomingPosts = scheduledPosts.filter(
-      (p) => p.status === "scheduled" && new Date(p.scheduled_time) > new Date(),
-    )
-
+    // Calculate stats
     const stats = {
       totalCampaigns: campaigns.length,
-      activeCampaigns: activeCampaigns.length,
-      scheduledPosts: upcomingPosts.length,
-      totalPosts: content.length,
-      campaigns: campaigns.slice(0, 5), // Recent campaigns
-      upcomingPosts: upcomingPosts.slice(0, 5), // Next 5 posts
+      activeCampaigns: campaigns.filter((c) => c.status === "active").length,
+      totalScheduledPosts: scheduledPosts.length,
+      publishedPosts: scheduledPosts.filter((p) => p.status === "published").length,
+      pendingPosts: scheduledPosts.filter((p) => p.status === "scheduled").length,
+      draftPosts: scheduledPosts.filter((p) => p.status === "draft").length,
     }
 
-    console.log("Client stats:", stats)
     return NextResponse.json(stats)
   } catch (error) {
-    console.error("[GET /api/clients/[id]/stats] Error:", error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to fetch client stats",
-        totalCampaigns: 0,
-        activeCampaigns: 0,
-        scheduledPosts: 0,
-        totalPosts: 0,
-      },
-      { status: 500 },
-    )
+    console.error("Error fetching client stats:", error)
+    return NextResponse.json({ error: "Failed to fetch client stats" }, { status: 500 })
   }
 }

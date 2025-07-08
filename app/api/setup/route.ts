@@ -1,11 +1,28 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
-const sql = neon(process.env.NEON_DATABASE_URL!)
+/**
+ * Lazily obtain a Neon SQL instance.
+ * Tries several env-var names so the build doesn't crash
+ * when one of them is missing.
+ */
+function getSql() {
+  const connectionString =
+    process.env.NEON_DATABASE_URL ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    ""
+
+  if (!connectionString) {
+    throw new Error("Database connection string not provided. Set NEON_DATABASE_URL or DATABASE_URL.")
+  }
+  return neon(connectionString)
+}
 
 export async function GET() {
   try {
-    // Test database connection
+    const sql = getSql()
     const result = await sql`SELECT NOW() as current_time`
 
     return NextResponse.json({
@@ -18,7 +35,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error: "Database connection failed",
+        error: error instanceof Error ? error.message : "Database connection failed",
       },
       { status: 500 },
     )
@@ -27,6 +44,8 @@ export async function GET() {
 
 export async function POST() {
   try {
+    const sql = getSql()
+
     // Create tables
     await sql`
       CREATE TABLE IF NOT EXISTS clients (
@@ -65,7 +84,7 @@ export async function POST() {
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to create database tables",
+        error: error instanceof Error ? error.message : "Failed to create database tables",
       },
       { status: 500 },
     )
