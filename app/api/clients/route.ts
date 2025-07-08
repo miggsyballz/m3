@@ -3,17 +3,17 @@ import { db } from "@/lib/db"
 
 export async function GET() {
   try {
-    console.log("GET /api/clients - Starting request")
-
+    console.log("GET /api/clients")
     const clients = await db.getClients()
-
-    console.log("GET /api/clients - Found clients:", clients.length)
-
+    console.log("Clients fetched:", clients.length)
     return NextResponse.json(clients)
   } catch (error) {
-    console.error("GET /api/clients - Error:", error)
+    console.error("[GET /api/clients] Error:", error)
     return NextResponse.json(
-      { error: "Failed to fetch clients", details: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: error instanceof Error ? error.message : "Failed to fetch clients",
+        clients: [],
+      },
       { status: 500 },
     )
   }
@@ -21,36 +21,30 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("POST /api/clients - Starting request")
-
     const body = await request.json()
-    console.log("POST /api/clients - Request body:", body)
+    console.log("POST /api/clients - body:", body)
 
-    const { client_name, contact_email, ig_handle, fb_page, linkedin_url, notes } = body
-
-    if (!client_name || !contact_email) {
-      return NextResponse.json(
-        { error: "Missing required fields: client_name and contact_email are required" },
-        { status: 400 },
-      )
+    if (!body.client_name || !body.contact_email) {
+      return NextResponse.json({ error: "Missing required fields: client_name, contact_email" }, { status: 400 })
     }
 
-    const client = await db.createClient({
-      client_name,
-      contact_email,
-      ig_handle: ig_handle || null,
-      fb_page: fb_page || null,
-      linkedin_url: linkedin_url || null,
-      notes: notes || null,
+    const newClient = await db.createClient({
+      client_name: body.client_name,
+      ig_handle: body.ig_handle || null,
+      fb_page: body.fb_page || null,
+      linkedin_url: body.linkedin_url || null,
+      contact_email: body.contact_email,
+      notes: body.notes || null,
     })
 
-    console.log("POST /api/clients - Created client:", client)
-
-    return NextResponse.json(client, { status: 201 })
+    console.log("Client created:", newClient)
+    return NextResponse.json(newClient, { status: 201 })
   } catch (error) {
-    console.error("POST /api/clients - Error:", error)
+    console.error("[POST /api/clients] Error:", error)
     return NextResponse.json(
-      { error: "Failed to create client", details: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: error instanceof Error ? error.message : "Failed to create client",
+      },
       { status: 500 },
     )
   }

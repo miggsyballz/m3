@@ -1,49 +1,48 @@
 -- Create clients table
 CREATE TABLE IF NOT EXISTS clients (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    client_name VARCHAR(255) NOT NULL,
-    ig_handle VARCHAR(100),
-    fb_page VARCHAR(255),
-    linkedin_url VARCHAR(255),
-    contact_email VARCHAR(255) NOT NULL,
-    notes TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id SERIAL PRIMARY KEY,
+    client_name VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    company VARCHAR(255),
+    industry VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create campaigns table
 CREATE TABLE IF NOT EXISTS campaigns (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(100) NOT NULL,
-    platforms TEXT[] DEFAULT '{}',
-    hashtags TEXT[] DEFAULT '{}',
+    id SERIAL PRIMARY KEY,
+    client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+    campaign_name VARCHAR(255) NOT NULL,
+    description TEXT,
     start_date DATE,
     end_date DATE,
-    status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'scheduled', 'completed')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    budget DECIMAL(10,2),
+    status VARCHAR(50) DEFAULT 'draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create content_items table
 CREATE TABLE IF NOT EXISTS content_items (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-    campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL,
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('image', 'video', 'audio', 'document')),
-    file_path VARCHAR(500) NOT NULL,
-    file_size BIGINT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id SERIAL PRIMARY KEY,
+    client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+    campaign_id INTEGER REFERENCES campaigns(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    content_type VARCHAR(50),
+    file_path VARCHAR(500),
+    file_size INTEGER,
+    tags TEXT[],
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create scheduled_posts table
 CREATE TABLE IF NOT EXISTS scheduled_posts (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
-    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    campaign_id INTEGER REFERENCES campaigns(id) ON DELETE CASCADE,
+    client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
     platform VARCHAR(50) NOT NULL,
     content TEXT NOT NULL,
     media_urls TEXT[] DEFAULT '{}',
@@ -89,4 +88,9 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_clients_updated_at BEFORE UPDATE ON clients FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_campaigns_updated_at BEFORE UPDATE ON campaigns FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_content_items_updated_at BEFORE UPDATE ON content_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_scheduled_posts_updated_at BEFORE UPDATE ON scheduled_posts FOR EACH ROW EXECUTE FUNCTION update_scheduled_posts_column();
+CREATE TRIGGER update_scheduled_posts_updated_at BEFORE UPDATE ON scheduled_posts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Insert sample data
+INSERT INTO clients (client_name, email, company, industry) VALUES
+('MaxxBeats', 'contact@maxxbeats.com', 'MaxxBeats Music', 'Music Production')
+ON CONFLICT (client_name) DO NOTHING;
